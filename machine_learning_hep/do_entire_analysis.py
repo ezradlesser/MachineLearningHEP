@@ -16,8 +16,9 @@
 main script for doing data processing, machine learning and analysis
 """
 
-#import os
+import os
 import yaml
+import argparse
 from multiprocesser import MultiProcesser  # pylint: disable=import-error
 #from machine_learning_hep.doskimming import conversion, merging, merging_period, skim
 #from machine_learning_hep.doclassification_regression import doclassification_regression
@@ -27,12 +28,12 @@ from multiprocesser import MultiProcesser  # pylint: disable=import-error
 from  machine_learning_hep.utilities import checkdirlist, checkdir
 from optimiser import Optimiser
 
-def do_entire_analysis(): # pylint: disable=too-many-locals, too-many-statements, too-many-branches
+def do_entire_analysis(analysis_config_file): # pylint: disable=too-many-locals, too-many-statements, too-many-branches
 
     with open("default_complete.yaml", 'r') as run_config:
         data_config = yaml.load(run_config)
 
-    with open("data/database_ml_parameters.yml", 'r') as param_config:
+    with open(analysis_config_file, 'r') as param_config:
         data_param = yaml.load(param_config)
 
     with open("data/config_model_parameters.yml", 'r') as mod_config:
@@ -242,4 +243,26 @@ def do_entire_analysis(): # pylint: disable=too-many-locals, too-many-statements
         mymultiprocesseffmc = MultiProcesser(data_param[case], run_param, "mc")
         mymultiprocesseffmc.multi_efficiency()
 
-do_entire_analysis()
+#---------------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------
+if __name__ == '__main__':
+  # Define arguments
+  parser = argparse.ArgumentParser(description="Do entire analysis")
+  parser.add_argument("-c", "--analysis_config_file", action="store",
+                      type=str, metavar="analysis_config_file",
+                      default="data/database_ml_parameters.yml",
+                      help="Path of config file for analysis parameters")
+
+  # Parse the arguments
+  args = parser.parse_args()
+  
+  arg = args.analysis_config_file
+  print( "analysis_config_file: \"{0}\"".format(arg) )
+  
+  # If invalid configFile is given, exit
+  if not os.path.exists(args.analysis_config_file):
+    print("File \"{0}\" does not exist! Exiting!".format(args.analysis_config_file))
+    sys.exit(0)
+
+  do_entire_analysis(analysis_config_file = args.analysis_config_file)
