@@ -1,0 +1,102 @@
+#############################################################################
+##  © Copyright CERN 2018. All rights not expressly granted are reserved.  ##
+##                 Author: Gian.Michele.Innocenti@cern.ch                  ##
+## This program is free software: you can redistribute it and/or modify it ##
+##  under the terms of the GNU General Public License as published by the  ##
+## Free Software Foundation, either version 3 of the License, or (at your  ##
+## option) any later version. This program is distributed in the hope that ##
+##  it will be useful, but WITHOUT ANY WARRANTY; without even the implied  ##
+##     warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.    ##
+##           See the GNU General Public License for more details.          ##
+##    You should have received a copy of the GNU General Public License    ##
+##   along with this program. if not, see <https://www.gnu.org/licenses/>. ##
+#############################################################################
+
+Jet:
+  sel_reco_unp: "ParticlePt>0.15"
+  sel_reco_singletrac_unp : null
+  sel_gen_unp: "ParticlePt>0.15 and abs(z_vtx_gen)<10"
+  #sel_cen_unp: "centrality >=0 & centrality <10"
+  sel_cen_unp: null
+  sel_good_evt_unp: "is_ev_rej == 0"
+  sel_reco_skim: [null]
+  sel_gen_skim: [null]
+  sel_skim_binmin: [4]
+  sel_skim_binmax: [6]
+    
+  variables:
+    var_all: [run_number, ev_id, ParticlePt, ParticleEta, ParticlePhi]
+    var_evt:
+      data: [is_ev_rej, run_number, ev_id, z_vtx_reco]
+      mc: [is_ev_rej, run_number, ev_id, z_vtx_reco, z_vtx_gen]
+      #data: [is_ev_rej, run_number, ev_id, centrality, z_vtx_reco]
+      #mc: [is_ev_rej, run_number, ev_id, centrality, z_vtx_reco, z_vtx_gen]
+    var_gen: [run_number, ev_id, ParticlePt, ParticleEta, ParticlePhi]
+    var_evt_match: [run_number, ev_id]
+
+  files_names:
+    namefile_unmerged_tree: AnalysisResults.root
+    namefile_reco: AnalysisResultsReco.pkl
+    namefile_evt: AnalysisResultsEvt.pkl
+    namefile_evtorig: AnalysisResultsEvtOrig.pkl
+    namefile_gen: AnalysisResultsGen.pkl
+    treeoriginreco: 'PWGHF_TreeCreator/tree_Particle'
+    treeorigingen: 'PWGHF_TreeCreator/tree_Particle'
+    treeoriginevt: 'PWGHF_TreeCreator/tree_event_char'
+    namefile_reco_ml_applied: AnalysisResultsRecoML.pkl
+
+  multi:
+    data:
+      nperiods: 1
+      nprocessesparallel: 4
+      maxfiles : [-1, -1]
+      chunksizeunp : [500]
+      chunksizeskim: [500]
+      fracmerge : [0.05]
+      #fracmerge : [1.0]
+      seedmerge: [12]
+      period: [LHC17q]
+      unmerged_tree_dir: [/Users/jamesmulligan/alidock/HFtree_Trains/487/12-06-2019/487_20190612-0216/unmerged]
+      pkl: [/Users/jamesmulligan/alidock/HFtree_Trains/487/data/datapklLHC17q]
+      pkl_skimmed: [datapklskLHC17q]
+      pkl_evtcounter_all: datapklevtcounter_all
+    mc:
+      nperiods: 1
+      nprocessesparallel: 4
+      #maxfiles : [-1]
+      #chunksizeunp : [300]
+      #chunksizeskim: [300]
+      #fracmerge : [1.0]
+      #seedmerge: [12]
+      #period: [LHC19c2b2_q]
+      #unmerged_tree_dir: [/Users/gianmicheleinnocenti/Desktop/sample/mc/unmerged]
+      #pkl: [mcpkl]
+      #pkl_skimmed: [mcpskpkl]
+      #pkl_skimmed_merge_for_ml: [mcpskmergedpkl]
+      #pkl_skimmed_merge_for_ml_all: mcpskmergedpklall
+      maxfiles : [-1]
+      #maxfiles: [10]
+      chunksizeunp : [300]
+      chunksizeskim: [300]
+      #chunksizeunp : [30]
+      #chunksizeskim: [30]
+      fracmerge : [1.0]
+      seedmerge: [12]
+      period: [LHC17q]
+      unmerged_tree_dir: [/Users/jamesmulligan/alidock/HFtree_Trains/487/12-06-2019/487_20190612-0216/unmerged]
+      pkl: [mcpkl487]
+      pkl_skimmed: [mcpklsk487]
+      pkl_evtcounter_all: mcpklevtcounter_all
+  
+  analysis:
+    data:
+      pkl_skimmed_dec: [datapklskdecLHC18q, datapklskdecLHC18r]
+      pkl_skimmed_decmerged: [datapklskdecmergedLHC18q, datapklskdecmergedLHC18r]
+      results: [datapklanalysisLHC18q, datapklanalysisLHC18r]
+    mc:
+      pkl_skimmed_dec: [mcpklskdec475, mcpklskdec477, mcpklskdec481, mcpklskdec483, mcpklskdec476, mcpklskdec478, mcpklskdec482, mcpklskdec484]
+      pkl_skimmed_decmerged: [mcpklskdecmerged475, mcpklskdecmerged477, mcpklskdecmerged481, mcpklskdecmerged483, mcpklskdecmerged476, mcpklskdecmerged478, mcpklskdecmerged482, mcpklskdecmerged484]
+      results: [mcpklanalysis475, mcpklanalysis477, mcpklanalysis481, mcpklanalysis483, mcpklanalysis476, mcpklanalysis478,  mcpklanalysis482, mcpklanalysis484]
+      #pkl_skimmed_dec: [mcpklskdec475, mcpklskdec477, mcpklskdec481, mcpklskdec483]
+      #pkl_skimmed_decmerged: [mcpklsdecmer475, mcpklsdecmer477, mcpklsdecmer481, mcpklsdecmer483]
+      #results: [mcres475, mcres477, mcres481, mcres483]

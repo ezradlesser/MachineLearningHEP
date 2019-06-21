@@ -40,12 +40,13 @@ class Processer: # pylint: disable=too-many-instance-attributes
 
     # Initializer / Instance Attributes
     # pylint: disable=too-many-statements, too-many-arguments
-    def __init__(self, datap, run_param, mcordata, p_maxfiles,
+    def __init__(self, case, datap, run_param, mcordata, p_maxfiles,
                  d_root, d_pkl, d_pklsk, d_pkl_ml, p_period,
                  p_chunksizeunp, p_chunksizeskim, p_maxprocess,
                  p_frac_merge, p_rd_merge, d_pkl_dec, d_pkl_decmerged, d_results):
 
         #directories
+        self.case = case
         self.d_root = d_root
         self.d_pkl = d_pkl
         self.d_pklsk = d_pklsk
@@ -77,9 +78,10 @@ class Processer: # pylint: disable=too-many-instance-attributes
         self.n_evt = datap["files_names"]["namefile_evt"]
         self.n_evtorig = datap["files_names"]["namefile_evtorig"]
         self.n_gen = datap["files_names"]["namefile_gen"]
-        self.n_filemass = datap["files_names"]["histofilename"]
-        self.n_fileeff = datap["files_names"]["efffilename"]
-
+        self.n_filemass = self.n_fileeff = None
+        if 'Jet' not in case:
+          self.n_filemass = datap["files_names"]["histofilename"]
+          self.n_fileeff = datap["files_names"]["efffilename"]
 
         #selections
         self.s_reco_unp = datap["sel_reco_unp"]
@@ -90,26 +92,32 @@ class Processer: # pylint: disable=too-many-instance-attributes
         self.s_gen_skim = datap["sel_gen_skim"]
 
         #bitmap
-        self.b_trackcuts = datap["sel_reco_singletrac_unp"]
-        self.b_std = datap["bitmap_sel"]["isstd"]
-        self.b_mcsig = datap["bitmap_sel"]["ismcsignal"]
-        self.b_mcsigprompt = datap["bitmap_sel"]["ismcprompt"]
-        self.b_mcsigfd = datap["bitmap_sel"]["ismcfd"]
-        self.b_mcbkg = datap["bitmap_sel"]["ismcbkg"]
+        self.b_trackcuts = self.b_std = self.b_mcsig = self.b_mcsigprompt = self.b_mcsigfd = self.b_mcbkg = None
+        if 'Jet' not in case:
+          self.b_trackcuts = datap["sel_reco_singletrac_unp"]
+          self.b_std = datap["bitmap_sel"]["isstd"]
+          self.b_mcsig = datap["bitmap_sel"]["ismcsignal"]
+          self.b_mcsigprompt = datap["bitmap_sel"]["ismcprompt"]
+          self.b_mcsigfd = datap["bitmap_sel"]["ismcfd"]
+          self.b_mcbkg = datap["bitmap_sel"]["ismcbkg"]
 
         #variables name
         self.v_all = datap["variables"]["var_all"]
-        self.v_train = datap["variables"]["var_training"]
         self.v_evt = datap["variables"]["var_evt"][self.mcordata]
         self.v_gen = datap["variables"]["var_gen"]
         self.v_evtmatch = datap["variables"]["var_evt_match"]
-        self.v_bitvar = datap["bitmap_sel"]["var_name"]
-        self.v_isstd = datap["bitmap_sel"]["var_isstd"]
-        self.v_ismcsignal = datap["bitmap_sel"]["var_ismcsignal"]
-        self.v_ismcprompt = datap["bitmap_sel"]["var_ismcprompt"]
-        self.v_ismcfd = datap["bitmap_sel"]["var_ismcfd"]
-        self.v_ismcbkg = datap["bitmap_sel"]["var_ismcbkg"]
-        self.v_var_binning = datap["variables"]["var_binning"]
+        self.v_train = self.v_bitvar = self.v_isstd = self.v_ismcsignal = self.v_ismcprompt = self.v_ismcfd = self.v_ismcbkg = self.v_var_binning = None
+        if 'Jet' not in case:
+          self.v_train = datap["variables"]["var_training"]
+          self.v_bitvar = datap["bitmap_sel"]["var_name"]
+          self.v_isstd = datap["bitmap_sel"]["var_isstd"]
+          self.v_ismcsignal = datap["bitmap_sel"]["var_ismcsignal"]
+          self.v_ismcprompt = datap["bitmap_sel"]["var_ismcprompt"]
+          self.v_ismcfd = datap["bitmap_sel"]["var_ismcfd"]
+          self.v_ismcbkg = datap["bitmap_sel"]["var_ismcbkg"]
+          self.v_var_binning = datap["variables"]["var_binning"]
+
+        
         #list of files names
 
         self.l_path = None
@@ -129,23 +137,26 @@ class Processer: # pylint: disable=too-many-instance-attributes
         self.f_totevt = os.path.join(self.d_pkl, self.n_evt)
         self.f_totevtorig = os.path.join(self.d_pkl, self.n_evtorig)
 
-        self.p_modelname = datap["analysis"]["modelname"]
         self.lpt_anbinmin = datap["sel_skim_binmin"]
         self.lpt_anbinmax = datap["sel_skim_binmax"]
         self.p_nptbins = len(datap["sel_skim_binmax"])
-        self.lpt_model = datap["analysis"]["modelsperptbin"]
-        self.dirmodel = datap["ml"]["mlout"]
-        self.lpt_model = appendmainfoldertolist(self.dirmodel, self.lpt_model)
-        self.lpt_probcutpre = datap["analysis"]["probcutpresel"]
-        self.lpt_probcutfin = datap["analysis"]["probcutoptimal"]
+
+        self.p_modelname = self.lpt_model = self.dirmodel = self.lpt_model = self.lpt_probcutpre = self.lpt_probcutfin = self.d_pkl_decmerged = self.n_filemass = self.n_fileeff = None
+        if 'Jet' not in case:
+          self.p_modelname = datap["analysis"]["modelname"]
+          self.lpt_model = datap["analysis"]["modelsperptbin"]
+          self.dirmodel = datap["ml"]["mlout"]
+          self.lpt_model = appendmainfoldertolist(self.dirmodel, self.lpt_model)
+          self.lpt_probcutpre = datap["analysis"]["probcutpresel"]
+          self.lpt_probcutfin = datap["analysis"]["probcutoptimal"]
+
+          self.d_pkl_decmerged = d_pkl_decmerged
+          self.n_filemass = os.path.join(d_results, self.n_filemass)
+          self.n_fileeff = os.path.join(d_results, self.n_fileeff)
 
         self.d_pkl_dec = d_pkl_dec
         self.mptfiles_recosk = []
         self.mptfiles_gensk = []
-
-        self.d_pkl_decmerged = d_pkl_decmerged
-        self.n_filemass = os.path.join(d_results, self.n_filemass)
-        self.n_fileeff = os.path.join(d_results, self.n_fileeff)
 
         self.lpt_recosk = [self.n_reco.replace(".pkl", "%d_%d.pkl" % \
                           (self.lpt_anbinmin[i], self.lpt_anbinmax[i])) \
@@ -153,38 +164,48 @@ class Processer: # pylint: disable=too-many-instance-attributes
         self.lpt_gensk = [self.n_gen.replace(".pkl", "%d_%d.pkl" % \
                           (self.lpt_anbinmin[i], self.lpt_anbinmax[i])) \
                           for i in range(self.p_nptbins)]
-        self.lpt_reco_ml = [os.path.join(self.d_pkl_ml, self.lpt_recosk[ipt]) \
-                             for ipt in range(self.p_nptbins)]
-        self.lpt_gen_ml = [os.path.join(self.d_pkl_ml, self.lpt_gensk[ipt]) \
-                            for ipt in range(self.p_nptbins)]
-        self.f_evt_ml = os.path.join(self.d_pkl_ml, self.n_evt)
-        self.f_evtorig_ml = os.path.join(self.d_pkl_ml, self.n_evtorig)
 
-        self.lpt_recodec = [self.n_reco.replace(".pkl", "%d_%d_%.2f.pkl" % \
-                           (self.lpt_anbinmin[i], self.lpt_anbinmax[i], \
-                            self.lpt_probcutpre[i])) for i in range(self.p_nptbins)]
+        self.lpt_reco_ml = self.lpt_gen_ml = self.f_evt_ml = self.f_evtorig_ml = self.lpt_recodec = self.mptfiles_recoskmldec = self.lpt_recodecmerged = None
+        if 'Jet' not in case:
+          self.lpt_reco_ml = [os.path.join(self.d_pkl_ml, self.lpt_recosk[ipt]) \
+                               for ipt in range(self.p_nptbins)]
+          self.lpt_gen_ml = [os.path.join(self.d_pkl_ml, self.lpt_gensk[ipt]) \
+                              for ipt in range(self.p_nptbins)]
+          self.f_evt_ml = os.path.join(self.d_pkl_ml, self.n_evt)
+          self.f_evtorig_ml = os.path.join(self.d_pkl_ml, self.n_evtorig)
+
+          self.lpt_recodec = [self.n_reco.replace(".pkl", "%d_%d_%.2f.pkl" % \
+                             (self.lpt_anbinmin[i], self.lpt_anbinmax[i], \
+                              self.lpt_probcutpre[i])) for i in range(self.p_nptbins)]
+          self.mptfiles_recoskmldec = [createlist(self.d_pkl_dec, self.l_path, \
+                                        self.lpt_recodec[ipt]) for ipt in range(self.p_nptbins)]
+          self.lpt_recodecmerged = [os.path.join(self.d_pkl_decmerged, self.lpt_recodec[ipt])
+                          for ipt in range(self.p_nptbins)]
+  
         self.mptfiles_recosk = [createlist(self.d_pklsk, self.l_path, \
                                 self.lpt_recosk[ipt]) for ipt in range(self.p_nptbins)]
-        self.mptfiles_recoskmldec = [createlist(self.d_pkl_dec, self.l_path, \
-                                   self.lpt_recodec[ipt]) for ipt in range(self.p_nptbins)]
-        self.lpt_recodecmerged = [os.path.join(self.d_pkl_decmerged, self.lpt_recodec[ipt])
-                                  for ipt in range(self.p_nptbins)]
+
         if self.mcordata == "mc":
             self.mptfiles_gensk = [createlist(self.d_pklsk, self.l_path, \
                                     self.lpt_gensk[ipt]) for ipt in range(self.p_nptbins)]
-            self.lpt_gendecmerged = [os.path.join(self.d_pkl_decmerged, self.lpt_gensk[ipt])
+            self.lpt_gendecmerged = None
+            if 'Jet' not in case:
+              self.lpt_gendecmerged = [os.path.join(self.d_pkl_decmerged, self.lpt_gensk[ipt])
                                      for ipt in range(self.p_nptbins)]
-        self.lpt_filemass = [self.n_filemass.replace(".root", "%d_%d_%.2f.root" % \
-                (self.lpt_anbinmin[ipt], self.lpt_anbinmax[ipt], \
-                 self.lpt_probcutfin[ipt])) for ipt in range(self.p_nptbins)]
 
-        self.p_mass_fit_lim = datap["analysis"]['mass_fit_lim']
-        self.p_bin_width = datap["analysis"]['bin_width']
-        self.p_num_bins = int(round((self.p_mass_fit_lim[1] - self.p_mass_fit_lim[0]) / \
-                                    self.p_bin_width))
-        self.l_selml = ["y_test_prob%s>%s" % (self.p_modelname, self.lpt_probcutfin[ipt]) \
-                       for ipt in range(self.p_nptbins)]
-        self.s_presel_gen_eff = datap["analysis"]['presel_gen_eff']
+        self.lpt_filemass = self.p_mass_fit_lim = self.p_bin_width = self.p_num_bins = self.l_selml = self.s_presel_gen_eff = None
+        if 'Jet' not in case:
+          self.lpt_filemass = [self.n_filemass.replace(".root", "%d_%d_%.2f.root" % \
+                  (self.lpt_anbinmin[ipt], self.lpt_anbinmax[ipt], \
+                   self.lpt_probcutfin[ipt])) for ipt in range(self.p_nptbins)]
+
+          self.p_mass_fit_lim = datap["analysis"]['mass_fit_lim']
+          self.p_bin_width = datap["analysis"]['bin_width']
+          self.p_num_bins = int(round((self.p_mass_fit_lim[1] - self.p_mass_fit_lim[0]) / \
+                                      self.p_bin_width))
+          self.l_selml = ["y_test_prob%s>%s" % (self.p_modelname, self.lpt_probcutfin[ipt]) \
+                         for ipt in range(self.p_nptbins)]
+          self.s_presel_gen_eff = datap["analysis"]['presel_gen_eff']
 
     def unpack(self, file_index):
         treeevtorig = uproot.open(self.l_root[file_index])[self.n_treeevt]
@@ -198,26 +219,31 @@ class Processer: # pylint: disable=too-many-instance-attributes
         dfevt.to_pickle(self.l_evt[file_index])
 
         treereco = uproot.open(self.l_root[file_index])[self.n_treereco]
+        if not treereco:
+          print('Couldn\'t find tree: {}'.format(self.n_treereco))
+  
         dfreco = treereco.pandas.df(branches=self.v_all)
         dfreco = selectdfrunlist(dfreco, self.runlist, "run_number")
         dfreco = selectdfquery(dfreco, self.s_reco_unp)
         dfreco = pd.merge(dfreco, dfevt, on=self.v_evtmatch)
-        isselacc = selectfidacc(dfreco.pt_cand.values, dfreco.y_cand.values)
-        dfreco = dfreco[np.array(isselacc, dtype=bool)]
-        if self.b_trackcuts is not None:
-            dfreco = filter_bit_df(dfreco, self.v_bitvar, self.b_trackcuts)
-        dfreco[self.v_isstd] = np.array(tag_bit_df(dfreco, self.v_bitvar,
-                                                   self.b_std), dtype=int)
-        dfreco = dfreco.reset_index(drop=True)
-        if self.mcordata == "mc":
-            dfreco[self.v_ismcsignal] = np.array(tag_bit_df(dfreco, self.v_bitvar,
-                                                            self.b_mcsig), dtype=int)
-            dfreco[self.v_ismcprompt] = np.array(tag_bit_df(dfreco, self.v_bitvar,
-                                                            self.b_mcsigprompt), dtype=int)
-            dfreco[self.v_ismcfd] = np.array(tag_bit_df(dfreco, self.v_bitvar,
-                                                        self.b_mcsigfd), dtype=int)
-            dfreco[self.v_ismcbkg] = np.array(tag_bit_df(dfreco, self.v_bitvar,
-                                                         self.b_mcbkg), dtype=int)
+        
+        if 'Jet' not in self.case:
+          isselacc = selectfidacc(dfreco.pt_cand.values, dfreco.y_cand.values)
+          dfreco = dfreco[np.array(isselacc, dtype=bool)]
+          if self.b_trackcuts is not None:
+              dfreco = filter_bit_df(dfreco, self.v_bitvar, self.b_trackcuts)
+          dfreco[self.v_isstd] = np.array(tag_bit_df(dfreco, self.v_bitvar,
+                                                     self.b_std), dtype=int)
+          dfreco = dfreco.reset_index(drop=True)
+          if self.mcordata == "mc":
+              dfreco[self.v_ismcsignal] = np.array(tag_bit_df(dfreco, self.v_bitvar,
+                                                              self.b_mcsig), dtype=int)
+              dfreco[self.v_ismcprompt] = np.array(tag_bit_df(dfreco, self.v_bitvar,
+                                                              self.b_mcsigprompt), dtype=int)
+              dfreco[self.v_ismcfd] = np.array(tag_bit_df(dfreco, self.v_bitvar,
+                                                          self.b_mcsigfd), dtype=int)
+              dfreco[self.v_ismcbkg] = np.array(tag_bit_df(dfreco, self.v_bitvar,
+                                                           self.b_mcbkg), dtype=int)
         dfreco.to_pickle(self.l_reco[file_index])
 
         if self.mcordata == "mc":

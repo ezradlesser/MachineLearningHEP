@@ -1,25 +1,25 @@
-case: LctopK0sPbPbCen3050
+case: Jet
 
 conversion:
   mc: 
-    activate: true 
+    activate: false
   data:
     activate: true
 skimming: 
   mc:
-    activate: true
+    activate: false
   data:
-    activate: true
+    activate: false
 merging: 
   mc:
-    activate: true
+    activate: false
   data:
-    activate: true
+    activate: false
 mergingperiods: 
   mc:
-    activate: true
+    activate: false
   data:
-    activate: true
+    activate: false
 
 ml_study:   
   activate: false

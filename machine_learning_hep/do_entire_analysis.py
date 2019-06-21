@@ -30,9 +30,11 @@ from optimiser import Optimiser
 
 def do_entire_analysis(analysis_config_file): # pylint: disable=too-many-locals, too-many-statements, too-many-branches
 
+    # Load configuration file specifying main options to execute: conversion, skimming, analysis, etc.
     with open("default_complete.yaml", 'r') as run_config:
         data_config = yaml.load(run_config)
 
+    # Load configuration file containing all relevant analysis parameters
     with open(analysis_config_file, 'r') as param_config:
         data_param = yaml.load(param_config)
 
@@ -45,6 +47,7 @@ def do_entire_analysis(analysis_config_file): # pylint: disable=too-many-locals,
     with open("data/database_ml_gridsearch.yml", 'r') as grid_config:
         grid_param = yaml.load(grid_config)
 
+    # Load parameters from data_config -- Required parameters
     case = data_config["case"]
     doconversionmc = data_config["conversion"]["mc"]["activate"]
     doconversiondata = data_config["conversion"]["data"]["activate"]
@@ -54,56 +57,62 @@ def do_entire_analysis(analysis_config_file): # pylint: disable=too-many-locals,
     doskimmingdata = data_config["skimming"]["data"]["activate"]
     domergingperiodsmc = data_config["mergingperiods"]["mc"]["activate"]
     domergingperiodsdata = data_config["mergingperiods"]["data"]["activate"]
-    doml = data_config["ml_study"]["activate"]
-    docorrelation = data_config["ml_study"]['docorrelation']
-    dotraining = data_config["ml_study"]['dotraining']
-    dotesting = data_config["ml_study"]['dotesting']
-    doapplytodatamc = data_config["ml_study"]['applytodatamc']
-    docrossvalidation = data_config["ml_study"]['docrossvalidation']
-    dolearningcurve = data_config["ml_study"]['dolearningcurve']
-    doroc = data_config["ml_study"]['doroc']
-    doboundary = data_config["ml_study"]['doboundary']
-    doimportance = data_config["ml_study"]['doimportance']
-    dogridsearch = data_config["ml_study"]['dogridsearch']
-    dosignifopt = data_config["ml_study"]['dosignifopt']
-    #doefficiency = run_config['doefficiency']
     doapplydata = data_config["analysis"]["data"]["doapply"]
     doapplymc = data_config["analysis"]["mc"]["doapply"]
     domergeapplydata = data_config["analysis"]["data"]["domergeapply"]
     domergeapplymc = data_config["analysis"]["mc"]["domergeapply"]
-    dohistomassmc = data_config["analysis"]["mc"]["histomass"]
-    dohistomassdata = data_config["analysis"]["data"]["histomass"]
-    doefficiency = data_config["analysis"]["mc"]["efficiency"]
 
+    # Load parameters from data_config -- Optional parameters
+    doml = docorrelation = dotraining = dotesting = doapplytodatamc = docrossvalidation = dolearningcurve = doroc = doboundary = doimportance = dogridsearch = dosignifopt = dohistomassmc = dohistomassdata = doefficiency = None
+    if 'Jet' not in case:
+      doml = data_config["ml_study"]["activate"]
+      docorrelation = data_config["ml_study"]['docorrelation']
+      dotraining = data_config["ml_study"]['dotraining']
+      dotesting = data_config["ml_study"]['dotesting']
+      doapplytodatamc = data_config["ml_study"]['applytodatamc']
+      docrossvalidation = data_config["ml_study"]['docrossvalidation']
+      dolearningcurve = data_config["ml_study"]['dolearningcurve']
+      doroc = data_config["ml_study"]['doroc']
+      doboundary = data_config["ml_study"]['doboundary']
+      doimportance = data_config["ml_study"]['doimportance']
+      dogridsearch = data_config["ml_study"]['dogridsearch']
+      dosignifopt = data_config["ml_study"]['dosignifopt']
+      #doefficiency = run_config['doefficiency']
+      dohistomassmc = data_config["analysis"]["mc"]["histomass"]
+      dohistomassdata = data_config["analysis"]["data"]["histomass"]
+      doefficiency = data_config["analysis"]["mc"]["efficiency"]
+
+    # Load parameters from data_param -- Required parameters
     dirpklmc = data_param[case]["multi"]["mc"]["pkl"]
     dirpklevtcounter_allmc = data_param[case]["multi"]["mc"]["pkl_evtcounter_all"]
     dirpklskmc = data_param[case]["multi"]["mc"]["pkl_skimmed"]
-    dirpklmlmc = data_param[case]["multi"]["mc"]["pkl_skimmed_merge_for_ml"]
-    dirpklmltotmc = data_param[case]["multi"]["mc"]["pkl_skimmed_merge_for_ml_all"]
     dirpkldata = data_param[case]["multi"]["data"]["pkl"]
     dirpklevtcounter_alldata = data_param[case]["multi"]["data"]["pkl_evtcounter_all"]
     dirpklskdata = data_param[case]["multi"]["data"]["pkl_skimmed"]
-    dirpklmldata = data_param[case]["multi"]["data"]["pkl_skimmed_merge_for_ml"]
-    dirpklmltotdata = data_param[case]["multi"]["data"]["pkl_skimmed_merge_for_ml_all"]
-    dirpklskdecmc = data_param[case]["analysis"]["mc"]["pkl_skimmed_dec"]
-    dirpklskdec_mergedmc = data_param[case]["analysis"]["mc"]["pkl_skimmed_decmerged"]
-    dirpklskdecdata = data_param[case]["analysis"]["data"]["pkl_skimmed_dec"]
-    dirpklskdec_mergeddata = data_param[case]["analysis"]["data"]["pkl_skimmed_decmerged"]
-
     dirresultsdata = data_param[case]["analysis"]["data"]["results"]
     dirresultsmc = data_param[case]["analysis"]["mc"]["results"]
 
-    binminarray = data_param[case]["ml"]["binmin"]
-    binmaxarray = data_param[case]["ml"]["binmax"]
-    raahp = data_param[case]["ml"]["opt"]["raahp"]
-    mltype = data_param[case]["ml"]["mltype"]
+    # Load parameters from data_param -- Optional parameters
+    dirpklmlmc = dirpklmltotmc = dirpklmldata = dirpklmltotdata = dirpklskdecmc = dirpklskdec_mergedmc = dirpklskdecdata = dirpklskdec_mergeddata = binminarray = binmaxarray = raahp = mltype = mlout = mlplot = None
+    if 'Jet' not in case:
+      dirpklmlmc = data_param[case]["multi"]["mc"]["pkl_skimmed_merge_for_ml"]
+      dirpklmltotmc = data_param[case]["multi"]["mc"]["pkl_skimmed_merge_for_ml_all"]
+      dirpklmldata = data_param[case]["multi"]["data"]["pkl_skimmed_merge_for_ml"]
+      dirpklmltotdata = data_param[case]["multi"]["data"]["pkl_skimmed_merge_for_ml_all"]
+      dirpklskdecmc = data_param[case]["analysis"]["mc"]["pkl_skimmed_dec"]
+      dirpklskdec_mergedmc = data_param[case]["analysis"]["mc"]["pkl_skimmed_decmerged"]
+      dirpklskdecdata = data_param[case]["analysis"]["data"]["pkl_skimmed_dec"]
+      dirpklskdec_mergeddata = data_param[case]["analysis"]["data"]["pkl_skimmed_decmerged"]
+      binminarray = data_param[case]["ml"]["binmin"]
+      binmaxarray = data_param[case]["ml"]["binmax"]
+      raahp = data_param[case]["ml"]["opt"]["raahp"]
+      mltype = data_param[case]["ml"]["mltype"]
+      mlout = data_param[case]["ml"]["mlout"]
+      mlplot = data_param[case]["ml"]["mlplot"]
 
-    mlout = data_param[case]["ml"]["mlout"]
-    mlplot = data_param[case]["ml"]["mlplot"]
-
-
-    mymultiprocessmc = MultiProcesser(data_param[case], run_param, "mc")
-    mymultiprocessdata = MultiProcesser(data_param[case], run_param, "data")
+    # Create instance of multiprocessor class
+    mymultiprocessmc = MultiProcesser(case, data_param[case], run_param, "mc")
+    mymultiprocessdata = MultiProcesser(case, data_param[case], run_param, "data")
 
     #creating folder if not present
     if doconversionmc is True:
