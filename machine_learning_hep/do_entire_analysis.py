@@ -35,7 +35,7 @@ def do_entire_analysis(analysis_config_file): # pylint: disable=too-many-locals,
         data_config = yaml.load(run_config)
 
     # Load configuration file containing all relevant analysis parameters
-    with open(analysis_config_file, 'r') as param_config:
+    with open(analysis_config_file, 'r', encoding='utf-8') as param_config:
         data_param = yaml.load(param_config)
 
     with open("data/config_model_parameters.yml", 'r') as mod_config:
