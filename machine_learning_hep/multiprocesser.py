@@ -15,7 +15,10 @@
 """
 main script for doing data processing, machine learning and analysis
 """
+from __future__ import division, print_function
 import os
+import numpy as np
+import pandas as pd
 
 from machine_learning_hep.processer import Processer
 from machine_learning_hep.utilities import merge_method
@@ -60,7 +63,12 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
         self.f_evtorig_mergedallp = os.path.join(self.d_pklevt_mergedallp, self.n_evtorig)
         
         # Optional parameters
-        self.dlper_pklml = self.d_pklml_mergedallp = self.lper_evtml = self.lper_evtorigml = self.lptper_recoml = self.f_evtorigml_mergedallp = self.lptper_genml = self.lpt_recoml_mergedallp = self.lpt_genml_mergedallp = self.f_evtml_mergedallp = self.dlper_reco_modapp = self.dlper_reco_modappmerged = self.lpt_probcutpre = self.lpt_probcut = None
+        self.dlper_pklml = self.d_pklml_mergedallp = self.lper_evtml = \
+            self.lper_evtorigml = self.lptper_recoml = self.f_evtorigml_mergedallp = \
+            self.lptper_genml = self.lpt_recoml_mergedallp = self.lpt_genml_mergedallp = \
+            self.f_evtml_mergedallp = self.dlper_reco_modapp = \
+            self.dlper_reco_modappmerged = self.lpt_probcutpre = self.lpt_probcut = None
+
         if 'Jet' not in case:
           self.dlper_pklml = datap["multi"][self.mcordata]["pkl_skimmed_merge_for_ml"]
           self.d_pklml_mergedallp = datap["multi"][self.mcordata]["pkl_skimmed_merge_for_ml_all"]
@@ -141,3 +149,15 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
     def multi_efficiency(self):
         for indexp in range(self.prodnumber):
             self.process_listsample[indexp].process_efficiency()
+
+    def calc_jet_lambda(self):
+        lambdas_per_bin = np.nan
+
+        for indexp in range(self.prodnumber):
+            lambdas_list = self.process_listsample[indexp].calc_lambda()
+
+            if lambdas_per_bin == np.nan:
+                lambdas_per_bin = lambdas_list
+            else:
+                for i, lambdas in enumerate(lambdas_list):
+                    lambdas_per_bin[i].concat(lambdas)

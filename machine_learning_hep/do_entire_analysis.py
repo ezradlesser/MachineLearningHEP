@@ -48,6 +48,9 @@ def do_entire_analysis(analysis_config_file): # pylint: disable=too-many-locals,
         grid_param = yaml.load(grid_config)
 
     # Load parameters from data_config -- Required parameters
+    usemc = data_config["use_mc"]
+    usedata = data_config["use_data"]
+
     case = data_config["case"]
     doconversionmc = data_config["conversion"]["mc"]["activate"]
     doconversiondata = data_config["conversion"]["data"]["activate"]
@@ -61,9 +64,13 @@ def do_entire_analysis(analysis_config_file): # pylint: disable=too-many-locals,
     doapplymc = data_config["analysis"]["mc"]["doapply"]
     domergeapplydata = data_config["analysis"]["data"]["domergeapply"]
     domergeapplymc = data_config["analysis"]["mc"]["domergeapply"]
+    dojetdata = data_config["jetanalysis"]["data"]["activate"]
+    dojetmc = data_config["jetanalysis"]["mc"]["activate"]
 
     # Load parameters from data_config -- Optional parameters
-    doml = docorrelation = dotraining = dotesting = doapplytodatamc = docrossvalidation = dolearningcurve = doroc = doboundary = doimportance = dogridsearch = dosignifopt = dohistomassmc = dohistomassdata = doefficiency = None
+    doml = docorrelation = dotraining = dotesting = doapplytodatamc = docrossvalidation = \
+           dolearningcurve = doroc = doboundary = doimportance = dogridsearch = dosignifopt = \
+           dohistomassmc = dohistomassdata = doefficiency = None
     if 'Jet' not in case:
       doml = data_config["ml_study"]["activate"]
       docorrelation = data_config["ml_study"]['docorrelation']
@@ -93,7 +100,9 @@ def do_entire_analysis(analysis_config_file): # pylint: disable=too-many-locals,
     dirresultsmc = data_param[case]["analysis"]["mc"]["results"]
 
     # Load parameters from data_param -- Optional parameters
-    dirpklmlmc = dirpklmltotmc = dirpklmldata = dirpklmltotdata = dirpklskdecmc = dirpklskdec_mergedmc = dirpklskdecdata = dirpklskdec_mergeddata = binminarray = binmaxarray = raahp = mltype = mlout = mlplot = None
+    dirpklmlmc = dirpklmltotmc = dirpklmldata = dirpklmltotdata = dirpklskdecmc = \
+                 dirpklskdec_mergedmc = dirpklskdecdata = dirpklskdec_mergeddata = \
+                 binminarray = binmaxarray = raahp = mltype = mlout = mlplot = None
     if 'Jet' not in case:
       dirpklmlmc = data_param[case]["multi"]["mc"]["pkl_skimmed_merge_for_ml"]
       dirpklmltotmc = data_param[case]["multi"]["mc"]["pkl_skimmed_merge_for_ml_all"]
@@ -111,8 +120,11 @@ def do_entire_analysis(analysis_config_file): # pylint: disable=too-many-locals,
       mlplot = data_param[case]["ml"]["mlplot"]
 
     # Create instance of multiprocessor class
-    mymultiprocessmc = MultiProcesser(case, data_param[case], run_param, "mc")
-    mymultiprocessdata = MultiProcesser(case, data_param[case], run_param, "data")
+    mymultiprocessmc = None
+    if usemc:
+        mymultiprocessmc = MultiProcesser(case, data_param[case], run_param, "mc")
+    if usedata:
+        mymultiprocessdata = MultiProcesser(case, data_param[case], run_param, "data")
 
     #creating folder if not present
     if doconversionmc is True:
@@ -175,80 +187,92 @@ def do_entire_analysis(analysis_config_file): # pylint: disable=too-many-locals,
         if checkdirlist(dirresultsdata) is True:
             print("folder exists")
 
-    #perform the analysis flow
-    if doconversionmc == 1:
+    # Perform the analysis flow
+
+    # Convert ROOT to pickle files if required
+    if doconversionmc:
         mymultiprocessmc.multi_unpack_allperiods()
 
-    if doconversiondata == 1:
+    if doconversiondata:
         mymultiprocessdata.multi_unpack_allperiods()
 
-    if doskimmingmc == 1:
+    # Skim the data if required
+    if doskimmingmc:
         mymultiprocessmc.multi_skim_allperiods()
 
-    if doskimmingdata == 1:
+    if doskimmingdata:
         mymultiprocessdata.multi_skim_allperiods()
 
-    if domergingmc == 1:
+    # Do jet finding & analysis if desired
+    if dojetdata:
+        mymultiprocessdata.multi_jet()
+
+    if dojetmc:
+        mymultiprocessmc.multi_jet()
+
+    # Merge data files for ML if required
+    if domergingmc:
         mymultiprocessmc.multi_mergeml_allperiods()
 
-    if domergingdata == 1:
+    if domergingdata:
         mymultiprocessdata.multi_mergeml_allperiods()
 
-    if domergingperiodsmc == 1:
+    if domergingperiodsmc:
         mymultiprocessmc.multi_mergeml_allinone()
 
-    if domergingperiodsdata == 1:
+    if domergingperiodsdata:
         mymultiprocessdata.multi_mergeml_allinone()
 
-    if doml is True:
+    # Do machine learning if required
+    if doml:
         index = 0
         for binmin, binmax in zip(binminarray, binmaxarray):
             myopt = Optimiser(data_param[case], case,
                               data_model[mltype], grid_param, binmin, binmax,
                               raahp[index])
-            if docorrelation is True:
+            if docorrelation:
                 myopt.do_corr()
-            if dotraining is True:
+            if dotraining:
                 myopt.do_train()
-            if dotesting is True:
+            if dotesting:
                 myopt.do_test()
-            if doapplytodatamc is True:
+            if doapplytodatamc:
                 myopt.do_apply()
-            if docrossvalidation is True:
+            if docrossvalidation:
                 myopt.do_crossval()
-            if dolearningcurve is True:
+            if dolearningcurve:
                 myopt.do_learningcurve()
-            if doroc is True:
+            if doroc:
                 myopt.do_roc()
-            if doimportance is True:
+            if doimportance:
                 myopt.do_importance()
-            if dogridsearch is True:
+            if dogridsearch:
                 myopt.do_grid()
-            if doboundary is True:
+            if doboundary:
                 myopt.do_boundary()
-            if dosignifopt is True:
+            if dosignifopt:
                 myopt.do_significance()
             index = index + 1
 
-    if doapplydata is True:
+    if doapplydata:
         mymultiprocessapplydata = MultiProcesser(data_param[case], run_param, "data")
         mymultiprocessapplydata.multi_apply_allperiods()
-    if doapplymc is True:
+    if doapplymc:
         mymultiprocessapplymc = MultiProcesser(data_param[case], run_param, "mc")
         mymultiprocessapplymc.multi_apply_allperiods()
-    if domergeapplydata is True:
+    if domergeapplydata:
         mymultiprocessmergeapplydata = MultiProcesser(data_param[case], run_param, "data")
         mymultiprocessmergeapplydata.multi_mergeapply_allperiods()
-    if domergeapplymc is True:
+    if domergeapplymc:
         mymultiprocessmergeapplymc = MultiProcesser(data_param[case], run_param, "mc")
         mymultiprocessmergeapplymc.multi_mergeapply_allperiods()
-    if dohistomassmc is True:
+    if dohistomassmc:
         mymultiprocessapplymc = MultiProcesser(data_param[case], run_param, "mc")
         mymultiprocessapplymc.multi_histomass()
-    if dohistomassdata is True:
+    if dohistomassdata:
         mymultiprocessapplydata = MultiProcesser(data_param[case], run_param, "data")
         mymultiprocessapplydata.multi_histomass()
-    if doefficiency is True:
+    if doefficiency:
         mymultiprocesseffmc = MultiProcesser(data_param[case], run_param, "mc")
         mymultiprocesseffmc.multi_efficiency()
 

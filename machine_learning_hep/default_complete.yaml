@@ -1,5 +1,8 @@
 case: Jet
 
+use_mc: false
+use_data: true
+
 conversion:
   mc: 
     activate: false
@@ -20,6 +23,13 @@ mergingperiods:
     activate: false
   data:
     activate: false
+   
+jetanalysis:
+  data:
+    activate: true
+  mc:
+    activate: false
+
 
 ml_study:   
   activate: false
@@ -49,4 +59,3 @@ analysis:
     domergeapplyperiods: false
     histomass: false
     efficiency: false
-   

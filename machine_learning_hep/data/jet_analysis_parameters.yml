@@ -23,7 +23,7 @@ Jet:
   sel_gen_skim: [null]
   sel_skim_binmin: [4]
   sel_skim_binmax: [6]
-    
+
   variables:
     var_all: [run_number, ev_id, ParticlePt, ParticleEta, ParticlePhi]
     var_evt:
@@ -33,6 +33,9 @@ Jet:
       #mc: [is_ev_rej, run_number, ev_id, centrality, z_vtx_reco, z_vtx_gen]
     var_gen: [run_number, ev_id, ParticlePt, ParticleEta, ParticlePhi]
     var_evt_match: [run_number, ev_id]
+    jetRadii = [0.1, 0.2, 0.3, 0.4]
+    pTbins = [20, 40, 60, 80, 100, 120]
+    betas = [1, 1.5, 2]
 
   files_names:
     namefile_unmerged_tree: AnalysisResults.root
@@ -55,9 +58,9 @@ Jet:
       fracmerge : [0.05]
       #fracmerge : [1.0]
       seedmerge: [12]
-      period: [LHC17q]
-      unmerged_tree_dir: [/Users/jamesmulligan/alidock/HFtree_Trains/487/12-06-2019/487_20190612-0216/unmerged]
-      pkl: [/Users/jamesmulligan/alidock/HFtree_Trains/487/data/datapklLHC17q]
+      period: [LHC17pq]
+      unmerged_tree_dir: [/project/projectdirs/alice/shared_data/487/12-06-2019/487_20190612-0216/unmerged]
+      pkl: [/project/projectdirs/alice/shared_data/487/12-06-2019/487_20190612-0216/pkl]
       pkl_skimmed: [datapklskLHC17q]
       pkl_evtcounter_all: datapklevtcounter_all
     mc:
@@ -82,9 +85,9 @@ Jet:
       #chunksizeskim: [30]
       fracmerge : [1.0]
       seedmerge: [12]
-      period: [LHC17q]
-      unmerged_tree_dir: [/Users/jamesmulligan/alidock/HFtree_Trains/487/12-06-2019/487_20190612-0216/unmerged]
-      pkl: [mcpkl487]
+      period: [LHC17pq]
+      unmerged_tree_dir: [project/projectdirs/alice/shared_data/487/12-06-2019/487_20190612-0216/unmerged/mc]
+      pkl: [/project/projectdirs/alice/shared_data/487/12-06-2019/487_20190612-0216/mcpkl]
       pkl_skimmed: [mcpklsk487]
       pkl_evtcounter_all: mcpklevtcounter_all
   
