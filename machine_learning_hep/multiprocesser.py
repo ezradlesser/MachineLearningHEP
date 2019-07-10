@@ -15,13 +15,17 @@
 """
 main script for doing data processing, machine learning and analysis
 """
+
 from __future__ import division, print_function
 import os
 import numpy as np
 import pandas as pd
 
 from machine_learning_hep.processer import Processer
-from machine_learning_hep.utilities import merge_method
+from machine_learning_hep.utilities import merge_method, concat_dir, get_pT_bin_list
+
+
+#---------------------------------------------------------------------------------------------------
 class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-statements
     species = "multiprocesser"
     def __init__(self, case, datap, run_param, mcordata):
@@ -70,26 +74,30 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
             self.dlper_reco_modappmerged = self.lpt_probcutpre = self.lpt_probcut = None
 
         if 'Jet' not in case:
-          self.dlper_pklml = datap["multi"][self.mcordata]["pkl_skimmed_merge_for_ml"]
-          self.d_pklml_mergedallp = datap["multi"][self.mcordata]["pkl_skimmed_merge_for_ml_all"]
-          self.lper_evtml = [os.path.join(direc, self.n_evt) for direc in self.dlper_pklml]
-          self.lper_evtorigml = [os.path.join(direc, self.n_evtorig) for direc in self.dlper_pklml]
-          self.lptper_recoml = [[os.path.join(direc, self.lpt_recosk[ipt]) \
+            self.dlper_pklml = datap["multi"][self.mcordata]["pkl_skimmed_merge_for_ml"]
+            self.d_pklml_mergedallp = datap["multi"][self.mcordata]["pkl_skimmed_merge_for_ml_all"]
+            self.lper_evtml = [os.path.join(direc, self.n_evt) for direc in self.dlper_pklml]
+            self.lper_evtorigml = [os.path.join(direc, self.n_evtorig) for direc in self.dlper_pklml]
+            self.lptper_recoml = [[os.path.join(direc, self.lpt_recosk[ipt]) \
                                    for direc in self.dlper_pklml] \
                                   for ipt in range(self.p_nptbins)]
-          self.f_evtorigml_mergedallp = os.path.join(self.d_pklml_mergedallp, self.n_evtorig)
-          self.lptper_genml = [[os.path.join(direc, self.lpt_gensk[ipt]) \
-                                for direc in self.dlper_pklml] \
-                                for ipt in range(self.p_nptbins)]
-          self.lpt_recoml_mergedallp = [os.path.join(self.d_pklml_mergedallp, self.lpt_recosk[ipt]) \
-                                        for ipt in range(self.p_nptbins)]
-          self.lpt_genml_mergedallp = [os.path.join(self.d_pklml_mergedallp, self.lpt_gensk[ipt]) \
-                                       for ipt in range(self.p_nptbins)]
-          self.f_evtml_mergedallp = os.path.join(self.d_pklml_mergedallp, self.n_evt)
-          self.dlper_reco_modapp = datap["analysis"][self.mcordata]["pkl_skimmed_dec"]
-          self.dlper_reco_modappmerged = datap["analysis"][self.mcordata]["pkl_skimmed_decmerged"]
-          self.lpt_probcutpre = datap["analysis"]["probcutpresel"]
-          self.lpt_probcut = datap["analysis"]["probcutoptimal"]
+            self.f_evtorigml_mergedallp = os.path.join(self.d_pklml_mergedallp, self.n_evtorig)
+            self.lptper_genml = [[os.path.join(direc, self.lpt_gensk[ipt]) \
+                                  for direc in self.dlper_pklml] \
+                                 for ipt in range(self.p_nptbins)]
+            self.lpt_recoml_mergedallp = [os.path.join(self.d_pklml_mergedallp, self.lpt_recosk[ipt]) \
+                                          for ipt in range(self.p_nptbins)]
+            self.lpt_genml_mergedallp = [os.path.join(self.d_pklml_mergedallp, self.lpt_gensk[ipt]) \
+                                         for ipt in range(self.p_nptbins)]
+            self.f_evtml_mergedallp = os.path.join(self.d_pklml_mergedallp, self.n_evt)
+            self.dlper_reco_modapp = datap["analysis"][self.mcordata]["pkl_skimmed_dec"]
+            self.dlper_reco_modappmerged = datap["analysis"][self.mcordata]["pkl_skimmed_decmerged"]
+            self.lpt_probcutpre = datap["analysis"]["probcutpresel"]
+            self.lpt_probcut = datap["analysis"]["probcutoptimal"]
+        else:   # 'Jet' in case
+            self.jetRadii = datap["variables"]["jetRadii"]
+            self.pTbins = datap["variables"]["pTbins"]
+            self.betas = datap["variables"]["betas"]
 
         self.process_listsample = []
         for indexp in range(self.prodnumber):
@@ -150,14 +158,101 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
         for indexp in range(self.prodnumber):
             self.process_listsample[indexp].process_efficiency()
 
+    def merge_lambdas(self, lambdas1, lambdas2):
+        for jetR in self.jetRadii:
+            for beta in self.betas:
+                lambdas1.at[beta, jetR].extend(lambdas2.at[beta, jetR])
+        return lambdas1
+
+    def merge_lambda_lists(lambda_list_1, lambda_list_2):
+        if lambda_list_1 == np.nan:
+            return lambda_list_2
+        else:
+            for i, lambdas in enumerate(lambda_list_2):
+                # Update lambda_list_1 with info from lambda_list_2
+                lambda_list_1[i] = merge_lambdas(lambda_list_1[i], lambdas)
+        return lambda_list_1
+
     def calc_jet_lambda(self):
         lambdas_per_bin = np.nan
 
         for indexp in range(self.prodnumber):
+            print("Calculating jet lambda substructure observable for %s" % self.dlper_root[indexp])
             lambdas_list = self.process_listsample[indexp].calc_lambda()
+            lambdas_per_bin = merge_lambda_lists(lambdas_per_bin, lambdas_list)
 
-            if lambdas_per_bin == np.nan:
-                lambdas_per_bin = lambdas_list
-            else:
-                for i, lambdas in enumerate(lambdas_list):
-                    lambdas_per_bin[i].concat(lambdas)
+        return lambdas_per_bin
+
+    def initialize_lambda_plots(self, pTmin, pTmax):
+
+        plt.rc('font', size=20)          # controls default text sizes
+        plt.rc('axes', labelsize=18)     # fontsize of the x and y labels
+        plt.rc('xtick', labelsize=14)    # fontsize of the tick labels
+        plt.rc('ytick', labelsize=14)    # fontsize of the tick labels
+
+        # Create figure for tau_alpha plot & arrange subplots
+        fig, a = plt.subplots(len(self.betas), len(self.jetRadii))
+        fig.suptitle(r'Calculated $\tau_\alpha$ values for $p_{T\text{, jet}}=%s-%s$' % 
+                     (str(pTmin), str(pTmax)))
+        fig.text(0.5, 0.04, 'Jet Radius', ha='center', va='center')   # Major x-axis label
+        fig.text(0.06, 0.5, 'Beta', ha='center', va='center', 
+                 rotation='vertical')                                 # Major y-axis label
+        fig.set_size_inches(18.5, 10.5)
+
+        # Create figure for jet pT distribution & arrange subplots
+        fig2, a2 = plt.subplots(len(self.betas), len(self.jetRadii))
+        fig2.suptitle(r'Cut jet $p_T$ multiplicity for $p_{T\text{, jet}}=%s-%s$' % 
+                      (str(pTmin), str(pTmax)))
+        fig2.text(0.5, 0.04, 'Jet Radius', ha='center', va='center')  # Major x-axis label
+        fig2.text(0.06, 0.5, 'Beta', ha='center', va='center', 
+                  rotation='vertical')                                # Major y-axis label
+        fig2.set_size_inches(18.5, 10.5)
+
+        return fig, a, fig2, a2
+
+    def plot_jet_lambda(self):
+        # Create directroy to save files
+        l_dir = self.datap["multi"][self.mcordata]["lambda_plot_dir"]
+        pTbins = self.datap["variables"]["pTbins"]
+        pTbins_ranges = get_pT_bin_list(pTbins)
+        create_folder_struct(l_dir, pTbins_ranges)
+
+        # Get the list of dataframes containing lambdas info per pT bin, beta, & jet R
+        lambdas_per_bin = calc_jet_lambda()
+
+        # Make plots per jet pT bin
+        for i, pTmin in list(enumerate(pTbins))[0:-1]:
+            pTmax = pTbins[i + 1]
+            fig, a, fig2, a2 = initialize_lambda_plots(self.betas, self.jetRadii, pTmin, pTmax)
+
+            # TODO: modify fig2 / a2 to create a jet pT distribution
+
+            # Create subplot per jet R and beta (for each individual pT bin)
+            for j, jetR in enumerate(self.jetRadii):
+                for k, beta in enumerate(self.betas):
+                    lambda_list = lambdas_per_bin[i].at[beta, jetR]
+                    ax = a[j, k]
+
+                    # Approx bin size for good statistics
+                    n_bins = len(lambda_list) // (5 * 10**4) + 1
+                    # Make the subplot a histogram
+                    n, bins, patches = ax.hist(lambda_list, range=(0, 0.6), bins=n_bins)
+                    # Scientific notation on y-axis
+                    ax.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+                    # Add labels to sub axes
+                    if i == 0:
+                        ax.set_ylabel(r"$\alpha = " + str(alpha) + '$')
+                    if alphaNum == (len(alphas) - 1):
+                        ax.set_xlabel(r"$R = " + str(jetR) + '$')
+
+            # Save plot
+            out_dir = concat_dir(l_dir, pTbins_ranges[i])
+            fig.savefig('%slambda.png' % out_dir)
+
+        return 0
+
+
+    def multi_jet(self):
+        plot_jet_lambda()
+        # Do other stuff eventually
+        return 0

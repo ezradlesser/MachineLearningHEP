@@ -13,8 +13,9 @@
 #############################################################################
 
 """
-main script for doing data processing, machine learning and analysis
+Individual processing class used to process individual tasks called by multi-processing
 """
+
 from __future__ import division, print_function
 import math
 import array
@@ -573,7 +574,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
 
     # Calculate the jet substructure variable lambda_k for all values
     # of k indicated in the configuration file
-    def calcLambda(self):
+    def calc_lambda(self):
 
         # Get the events & their corresponding jets (if not already done)
         if self.jets == np.nan:

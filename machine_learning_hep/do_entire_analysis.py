@@ -16,6 +16,7 @@
 main script for doing data processing, machine learning and analysis
 """
 
+from __future__ import print_function
 import os
 import yaml
 import argparse

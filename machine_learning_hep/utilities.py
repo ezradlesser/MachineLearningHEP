@@ -13,8 +13,10 @@
 #############################################################################
 
 """
-main script for doing data processing, machine learning and analysis
+Helper functions for processing & file operations
 """
+
+from __future__ import print_function
 import pickle
 import os
 import numpy as np
@@ -67,13 +69,10 @@ def list_folders(main_dir, filenameinput, maxfiles):
 def create_folder_struc(maindir, listpath):
     for path in listpath:
         path = path.split("/")
-
-        folder = os.path.join(maindir, path[0])
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-        folder = os.path.join(folder, path[1])
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+        for subpath in path:
+            folder = os.path.join(maindir, subpath)
+            if not os.path.exists(folder):
+                os.makedirs(folder)
 
 def checkdirlist(dirlist):
     exfolders = 0
@@ -107,6 +106,7 @@ def createlist(prefolder, mylistfolder, namefile):
     listfiles = appendfiletolist(mylistfolder, namefile)
     listfiles = appendmainfoldertolist(prefolder, listfiles)
     return listfiles
+
 def seldf_singlevar(dataframe, var, minval, maxval):
     dataframe = dataframe.loc[(dataframe[var] > minval) & (dataframe[var] < maxval)]
     return dataframe
@@ -119,3 +119,19 @@ def split_df_sigbkg(dataframe_, var_signal_):
 def createstringselection(var, low, high):
     string_selection = "dfselection_"+(("%s_%.1f_%.1f") % (var, low, high))
     return string_selection
+
+def concat_dir(main_dir, sub_dir):
+    out_dir = ""
+    if main_dir[-1] == '/':
+        out_dir = main_dir + sub_dir
+    else:
+        out_dir = main_dir + '/' + sub_dir
+    return out_dir
+
+def get_pT_bin_list(pTbins):
+    pT_bin_list = []
+    for i, pTmin in list(enumerate(pTbins))[0:-1]:
+        pTmax = pTbins[i+1]
+        bin_name = "%i-%i" % (pTmin, pTmax)
+        pT_bin_list.append(bin_name)
+    return pT_bin_list

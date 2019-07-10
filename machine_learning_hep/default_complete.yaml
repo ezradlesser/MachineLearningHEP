@@ -25,10 +25,10 @@ mergingperiods:
     activate: false
    
 jetanalysis:
-  data:
-    activate: true
   mc:
     activate: false
+  data:
+    activate: true
 
 
 ml_study:   
