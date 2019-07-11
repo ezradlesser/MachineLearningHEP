@@ -481,7 +481,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
     #         [ [jet_pT, jet_eta, jet_phi, jet_m, (pT, eta, phi, m), ...],
     #           [jet_pT, jet_eta, jet_phi, jet_m, (pT, eta, phi, m), ...], ... ]
     def findJetsSingleEvent(self, particles, jetR):
-        jets = pyjet.cluster(particles, R=jetR, p=-1).inclusive_jets()
+        jets = pyjet.cluster(particles, R=jetR, p=-1).inclusive_jets()  # p=-1  -->  anti-kT
         jetList = []
         for jet in jets:
             etaMax = self.datap['variables']['etaMax'] - jetR
@@ -491,7 +491,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
         return jetList
 
 
-    # Does anti-kT jet-finding on given reconstructed particle tracks in an event
+    # Does jet-finding on given reconstructed particle tracks in an event
     # and returns a dataframe of the jets for given jet radius:
     # ________|____________JetRadii______________|
     # ev_id   |  JetR  |  JetR  |  JetR  |  ...  |
@@ -503,6 +503,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
                   (self.n_treereco, self.l_root[file_index]))
             return pd.DataFrame(columns=self.jetRadii)
         dfreco = treereco.pandas.df(branches=self.v_all)
+        num_events = len(dfreco)
 
         # Create list of particles per event for jet finding
         df_iter = dfreco.iterrows()
@@ -510,16 +511,25 @@ class Processer: # pylint: disable=too-many-instance-attributes
         current_ev = np.array([], dtype=dt)
         jet_df = pd.DataFrame(columns=self.jetRadii)
         prev_ev_id = None
+        counter = 0
         try:
             while True:
                 # Iterate through each column in the dataframe
                 row = next(df_iter)[1]
+                counter += 1
+                if not counter % 1000:
+                    print("Working on jet finding ... processed %i/%i events" % 
+                          (counter, num_events), end='\r')
 
                 # Check to see if this is the same event or a new one
                 if row['ev_id'] != prev_ev_id:
                     if prev_ev_id != None:
-                        for jetR in self.jetRadii:
-                            jet_df.at[prev_ev_id, jetR] = self.findJetsSingleEvent(current_ev, jetR)
+                        jet_df.loc[prev_ev_id] = [self.findJetsSingleEvent(current_ev, jetR) \
+                                                  for jetR in self.jetRadii]
+                        print(jet_df)
+                        exit()
+                        #for jetR in self.jetRadii:
+                        #    jet_df.at[prev_ev_id, jetR] = self.findJetsSingleEvent(current_ev, jetR)
                         current_ev = np.array([], dtype=dt)
                     prev_ev_id = int(row['ev_id'])
 
@@ -534,6 +544,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
             for jetR in self.jetRadii:
                 jet_df.at[prev_ev_id, jetR] = self.findJetsSingleEvent(current_ev, jetR)
 
+        print("Working on jet finding ... processed %i/%i events" % (counter, num_events))
         return jet_df
 
 
