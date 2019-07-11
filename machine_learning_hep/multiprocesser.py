@@ -36,21 +36,22 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
         self.datap = datap
         self.run_param = run_param
         self.mcordata = mcordata
-        self.prodnumber = len(datap["multi"][self.mcordata]["unmerged_tree_dir"])
-        self.p_period = datap["multi"][self.mcordata]["period"]
-        self.p_seedmerge = datap["multi"][self.mcordata]["seedmerge"]
-        self.p_fracmerge = datap["multi"][self.mcordata]["fracmerge"]
-        self.p_maxfiles = datap["multi"][self.mcordata]["maxfiles"]
-        self.p_chunksizeunp = datap["multi"][self.mcordata]["chunksizeunp"]
-        self.p_chunksizeskim = datap["multi"][self.mcordata]["chunksizeskim"]
-        self.p_nparall = datap["multi"][self.mcordata]["nprocessesparallel"]
+        self.prodnumber = len(datap["multi"][mcordata]["unmerged_tree_dir"])
+        self.p_period = datap["multi"][mcordata]["period"]
+        self.p_seedmerge = datap["multi"][mcordata]["seedmerge"]
+        self.p_fracmerge = datap["multi"][mcordata]["fracmerge"]
+        self.p_maxfiles = datap["multi"][mcordata]["maxfiles"]
+        self.p_chunksizeunp = datap["multi"][mcordata]["chunksizeunp"]
+        self.p_chunksizeskim = datap["multi"][mcordata]["chunksizeskim"]
+        self.p_chunksizejet = datap["multi"][mcordata]["chunksizejet"]
+        self.p_nparall = datap["multi"][mcordata]["nprocessesparallel"]
         self.lpt_anbinmin = datap["sel_skim_binmin"]
         self.lpt_anbinmax = datap["sel_skim_binmax"]
         self.p_nptbins = len(datap["sel_skim_binmax"])
-        self.dlper_root = datap["multi"][self.mcordata]["unmerged_tree_dir"]
-        self.dlper_pkl = datap["multi"][self.mcordata]["pkl"]
-        self.dlper_pklsk = datap["multi"][self.mcordata]["pkl_skimmed"]
-        self.d_pklevt_mergedallp = datap["multi"][self.mcordata]["pkl_evtcounter_all"]
+        self.dlper_root = datap["multi"][mcordata]["unmerged_tree_dir"]
+        self.dlper_pkl = datap["multi"][mcordata]["pkl"]
+        self.dlper_pklsk = datap["multi"][mcordata]["pkl_skimmed"]
+        self.d_pklevt_mergedallp = datap["multi"][mcordata]["pkl_evtcounter_all"]
         self.n_reco = datap["files_names"]["namefile_reco"]
         self.n_evt = datap["files_names"]["namefile_evt"]
         self.n_evtorig = datap["files_names"]["namefile_evtorig"]
@@ -63,7 +64,7 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
                           for i in range(self.p_nptbins)]
         self.lper_evt = [os.path.join(direc, self.n_evt) for direc in self.dlper_pkl]
         self.lper_evtorig = [os.path.join(direc, self.n_evtorig) for direc in self.dlper_pkl]
-        self.d_results = datap["analysis"][self.mcordata]["results"]
+        self.d_results = datap["analysis"][mcordata]["results"]
         self.f_evt_mergedallp = os.path.join(self.d_pklevt_mergedallp, self.n_evt)
         self.f_evtorig_mergedallp = os.path.join(self.d_pklevt_mergedallp, self.n_evtorig)
         
@@ -75,8 +76,8 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
             self.dlper_reco_modappmerged = self.lpt_probcutpre = self.lpt_probcut = None
 
         if 'Jet' not in case:
-            self.dlper_pklml = datap["multi"][self.mcordata]["pkl_skimmed_merge_for_ml"]
-            self.d_pklml_mergedallp = datap["multi"][self.mcordata]["pkl_skimmed_merge_for_ml_all"]
+            self.dlper_pklml = datap["multi"][mcordata]["pkl_skimmed_merge_for_ml"]
+            self.d_pklml_mergedallp = datap["multi"][mcordata]["pkl_skimmed_merge_for_ml_all"]
             self.lper_evtml = [os.path.join(direc, self.n_evt) for direc in self.dlper_pklml]
             self.lper_evtorigml = [os.path.join(direc, self.n_evtorig) for direc in self.dlper_pklml]
             self.lptper_recoml = [[os.path.join(direc, self.lpt_recosk[ipt]) \
@@ -91,8 +92,8 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
             self.lpt_genml_mergedallp = [os.path.join(self.d_pklml_mergedallp, self.lpt_gensk[ipt]) \
                                          for ipt in range(self.p_nptbins)]
             self.f_evtml_mergedallp = os.path.join(self.d_pklml_mergedallp, self.n_evt)
-            self.dlper_reco_modapp = datap["analysis"][self.mcordata]["pkl_skimmed_dec"]
-            self.dlper_reco_modappmerged = datap["analysis"][self.mcordata]["pkl_skimmed_decmerged"]
+            self.dlper_reco_modapp = datap["analysis"][mcordata]["pkl_skimmed_dec"]
+            self.dlper_reco_modappmerged = datap["analysis"][mcordata]["pkl_skimmed_decmerged"]
             self.lpt_probcutpre = datap["analysis"]["probcutpresel"]
             self.lpt_probcut = datap["analysis"]["probcutoptimal"]
         else:   # 'Jet' in case
@@ -111,9 +112,9 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
             myprocess = Processer(self.case, self.datap, self.run_param, self.mcordata,
                                   self.p_maxfiles[indexp], self.dlper_root[indexp],
                                   self.dlper_pkl[indexp], self.dlper_pklsk[indexp],
-                                  self_dlper_pklml,
-                                  self.p_period[indexp], self.p_chunksizeunp[indexp],
-                                  self.p_chunksizeskim[indexp], self.p_nparall,
+                                  self_dlper_pklml, self.p_period[indexp], 
+                                  self.p_chunksizeunp[indexp], self.p_chunksizeskim[indexp],
+                                  self.p_chunksizejet[indexp], self.p_nparall,
                                   self.p_fracmerge[indexp], self.p_seedmerge[indexp],
                                   self_dlper_reco_modapp,
                                   self_dlper_reco_modappmerged,

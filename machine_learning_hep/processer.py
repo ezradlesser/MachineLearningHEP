@@ -32,9 +32,8 @@ from ROOT import TFile, TH1F # pylint: disable=import-error, no-name-in-module
 
 from machine_learning_hep.selectionutils import selectfidacc
 from machine_learning_hep.bitwise import filter_bit_df, tag_bit_df
-from machine_learning_hep.utilities import selectdfquery, selectdfrunlist, merge_method
-from machine_learning_hep.utilities import list_folders, createlist, appendmainfoldertolist
-from machine_learning_hep.utilities import create_folder_struc, seldf_singlevar
+from machine_learning_hep.utilities import selectdfquery, selectdfrunlist, merge_method, \
+    list_folders, createlist, appendmainfoldertolist, create_folder_struc, seldf_singlevar
 from machine_learning_hep.models import apply # pylint: disable=import-error
 
 class Processer: # pylint: disable=too-many-instance-attributes
@@ -45,7 +44,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-statements, too-many-arguments
     def __init__(self, case, datap, run_param, mcordata, p_maxfiles,
                  d_root, d_pkl, d_pklsk, d_pkl_ml, p_period,
-                 p_chunksizeunp, p_chunksizeskim, p_maxprocess,
+                 p_chunksizeunp, p_chunksizeskim, p_chunksizejet, p_maxprocess,
                  p_frac_merge, p_rd_merge, d_pkl_dec, d_pkl_decmerged, d_results):
 
         #directories
@@ -64,6 +63,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
         self.p_maxfiles = p_maxfiles
         self.p_chunksizeunp = p_chunksizeunp
         self.p_chunksizeskim = p_chunksizeskim
+        self.p_chunksizejet = p_chunksizejet
 
         #parameter names
         self.p_maxprocess = p_maxprocess
@@ -329,19 +329,22 @@ class Processer: # pylint: disable=too-many-instance-attributes
         jet_df = pd.DataFrame(columns=self.jetRadii)
 
         for chunk in chunks:
-            print("Processing new chunk size=", maxperchunk)
+            print("Processing new chunk size =", maxperchunk)
             pool = mp.Pool(self.p_maxprocess)
             return_vals = [pool.apply_async(function, args=chunk[i]).get() for i in range(len(chunk))]
-            print("Return vals: ", return_vals)
 
             if function == self.findJets:
-                for i in return_vals:
-                    jet_df.concat(i)
+                l = [jet_df] + return_vals
+                jet_df = pd.concat(l)
+                # For testing right now, just return once we have some jets
+                if len(jet_df) > 1:
+                    return jet_df
 
             pool.close()
             pool.join()
 
         if function == self.findJets:
+            print("Jet finding complete. Total number of jets: %i" % len(jet_df))
             return jet_df
         return 0
             
@@ -526,10 +529,6 @@ class Processer: # pylint: disable=too-many-instance-attributes
                     if prev_ev_id != None:
                         jet_df.loc[prev_ev_id] = [self.findJetsSingleEvent(current_ev, jetR) \
                                                   for jetR in self.jetRadii]
-                        print(jet_df)
-                        exit()
-                        #for jetR in self.jetRadii:
-                        #    jet_df.at[prev_ev_id, jetR] = self.findJetsSingleEvent(current_ev, jetR)
                         current_ev = np.array([], dtype=dt)
                     prev_ev_id = int(row['ev_id'])
 
@@ -551,12 +550,12 @@ class Processer: # pylint: disable=too-many-instance-attributes
     def find_jets_all(self):
         print("doing jet finding", self.mcordata, self.period)
         arguments = [(i,) for i in range(len(self.l_root))]
-        return self.parallelizer(self.findJets, arguments, self.p_chunksizeunp)
+        return self.parallelizer(self.findJets, arguments, self.p_chunksizejet)
 
 
     # Calculate the jet substructure variable lambda for given jet, beta, kappa, and jet R)
-    def calcLambda_single_jet(jet, b, k, jet_R):
-        
+    def calc_lambda_single_jet(self, jet, b, k, jet_R):
+
         # Sanity check
         if len(jet) < 5:
             print("ERROR! Jet is nonsensical. Check jet-finding algorithm in processer.findJets")
@@ -569,7 +568,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
 
         # Calculate & sum lambda for all jet constituents
         lambda_bk = 0
-        for constituent in jet:
+        for constituent in jet[4:]:
             eta = constituent[1]
             phi = constituent[2]
             deltaR = np.sqrt( (jet_eta - eta)**2 + (jet_phi - phi)**2 )
@@ -612,7 +611,6 @@ class Processer: # pylint: disable=too-many-instance-attributes
         # Get the events & their corresponding jets (if not already done)
         if self.jets == None:
             self.jets = self.find_jets_all()
-        print(self.jets)
 
         # We want to create a different analysis for each pT bin
         lambdas_per_bin = self.gen_lambdas_per_pT_bin()
@@ -622,10 +620,10 @@ class Processer: # pylint: disable=too-many-instance-attributes
             for jetR in self.jetRadii:
                 for beta in self.betas:
                     for jet in row[jetR]:
-                        bin = get_pT_bin_num(jet[0])
+                        bin = self.get_pT_bin_num(jet[0])
                         if bin != -1:
                             kappa = 1   # just use this for now
-                            l = self.calcLambda_single_jet(jet, beta, kappa, jetR)
+                            l = self.calc_lambda_single_jet(jet, beta, kappa, jetR)
                             lambdas_per_bin[bin].at[beta, jetR].append(l)
 
         # Return list of dataframes per pT bin

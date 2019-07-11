@@ -56,6 +56,7 @@ Jet:
       maxfiles : [-1, -1]
       chunksizeunp : [500]
       chunksizeskim: [500]
+      chunksizejet: [1]
       fracmerge : [0.05]
       #fracmerge : [1.0]
       seedmerge: [12]
