@@ -154,7 +154,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
             self.jetRadii = datap['variables']['jetRadii']
             self.pTbins = datap['variables']['pTbins']
             self.betas = datap['variables']['betas']
-            self.jets = np.nan   # Will fill this in if needed using findJets()
+            self.jets = None   # Will fill this in if needed using findJets()
 
         if 'Jet' not in case:
             self.p_modelname = datap["analysis"]["modelname"]
@@ -331,7 +331,8 @@ class Processer: # pylint: disable=too-many-instance-attributes
         for chunk in chunks:
             print("Processing new chunk size=", maxperchunk)
             pool = mp.Pool(self.p_maxprocess)
-            return_vals = [pool.apply_async(function, args=chunk[i]) for i in range(len(chunk))]
+            return_vals = [pool.apply_async(function, args=chunk[i]).get() for i in range(len(chunk))]
+            print("Return vals: ", return_vals)
 
             if function == self.findJets:
                 for i in return_vals:
@@ -479,11 +480,11 @@ class Processer: # pylint: disable=too-many-instance-attributes
     # RETURNS list of clustered jets
     #         [ [jet_pT, jet_eta, jet_phi, jet_m, (pT, eta, phi, m), ...],
     #           [jet_pT, jet_eta, jet_phi, jet_m, (pT, eta, phi, m), ...], ... ]
-    def findJetsSingleEvent(particles, jetR):
+    def findJetsSingleEvent(self, particles, jetR):
         jets = pyjet.cluster(particles, R=jetR, p=-1).inclusive_jets()
         jetList = []
         for jet in jets:
-            etaMax = config['etaMax'] - jetR
+            etaMax = self.datap['variables']['etaMax'] - jetR
             if abs(jet.eta) < etaMax:
                 l = [jet.pt, jet.eta, jet.phi, jet.mass] + list(jet.constituents_array())
                 jetList.append(l)
@@ -500,33 +501,38 @@ class Processer: # pylint: disable=too-many-instance-attributes
         if not treereco:
             print('Couldn\'t find tree %s in file %s' % \
                   (self.n_treereco, self.l_root[file_index]))
+            return pd.DataFrame(columns=self.jetRadii)
         dfreco = treereco.pandas.df(branches=self.v_all)
 
         # Create list of particles per event for jet finding
         df_iter = dfreco.iterrows()
-        current_ev = []
+        dt = np.dtype([('pT', 'f8'), ('eta', 'f8'), ('phi', 'f8'), ('mass', 'f8')])
+        current_ev = np.array([], dtype=dt)
         jet_df = pd.DataFrame(columns=self.jetRadii)
-        prev_ev_id = np.nan
+        prev_ev_id = None
         try:
-            # Iterate through each column in the dataframe
-            row = next(df_iter)[1]
+            while True:
+                # Iterate through each column in the dataframe
+                row = next(df_iter)[1]
 
-            # Check to see if this is the same event or a new one
-            if row['ev_id'] != prev_ev_id:
-                for jetR in self.jetRadii:
-                    jet_df.at[prev_ev_id, jetR] = findJetsSingleEvent(current_ev, jetR)
-                current_ev = []
-                prev_ev_id = row['ev_id']
+                # Check to see if this is the same event or a new one
+                if row['ev_id'] != prev_ev_id:
+                    if prev_ev_id != None:
+                        for jetR in self.jetRadii:
+                            jet_df.at[prev_ev_id, jetR] = self.findJetsSingleEvent(current_ev, jetR)
+                        current_ev = np.array([], dtype=dt)
+                    prev_ev_id = int(row['ev_id'])
 
-            # For now just estimate everything as having pion mass
-            mass = 0.1396   # GeV/c^2
-            particle = (row['ParticlePt'], row['ParticleEta'], row['ParticlePhi'], mass)
-            current_ev.append(particle)
+                # For now just estimate everything as having pion mass
+                mass = 0.1396   # GeV/c^2
+                particle = np.array([(row['ParticlePt'], row['ParticleEta'], 
+                                      row['ParticlePhi'], mass)], dtype=dt)
+                current_ev = np.append(current_ev, particle)
 
         except StopIteration:
             # Save final event from dataframe to list
             for jetR in self.jetRadii:
-                jet_df.at[prev_ev_id, jetR] = findJetsSingleEvent(current_ev, jetR)
+                jet_df.at[prev_ev_id, jetR] = self.findJetsSingleEvent(current_ev, jetR)
 
         return jet_df
 
@@ -572,29 +578,44 @@ class Processer: # pylint: disable=too-many-instance-attributes
         return -1
 
 
+    # Generates list of dataframes with expected structure for each pT bin, e.g.:
+    #      ____________ Jet R _____________     
+    #      |     | 0.1  0.2  0.3  0.4  ...
+    #      | 1.0 | []   []   []   []
+    # beta | 1.5 | []   []   []   []
+    #      | 2.0 | []   []   []   []
+    def gen_lambdas_per_pT_bin(self):
+        lambdas_per_bin = []
+        for i, pTmin in list(enumerate(self.pTbins))[0:-1]:
+            lambdas_per_bin.append(pd.DataFrame(columns=self.jetRadii, index=self.betas))
+            # Initialize each value of the dataframe with an empty list
+            for jetR in self.jetRadii:
+                lambdas_per_bin[i][jetR] = np.empty((len(lambdas_per_bin[i]), 0)).tolist()
+        return lambdas_per_bin
+
+
     # Calculate the jet substructure variable lambda_k for all values
     # of k indicated in the configuration file
     def calc_lambda(self):
 
         # Get the events & their corresponding jets (if not already done)
-        if self.jets == np.nan:
+        if self.jets == None:
             self.jets = self.find_jets_all()
+        print(self.jets)
 
         # We want to create a different analysis for each pT bin
-        lambdas_per_bin = []
-        for bin, pTmin in list(enumerate(self.pTbins))[0:-1]:
-            lambdas_per_bin.append(pd.DataFrame([], columns=self.jetRadii, index=self.betas))
+        lambdas_per_bin = self.gen_lambdas_per_pT_bin()
 
         # Calculate histogram entries for each element in dataframe
-        for ev_id, row in lambdas.iterrows():
+        for ev_id, row in self.jets.iterrows():
             for jetR in self.jetRadii:
                 for beta in self.betas:
                     for jet in row[jetR]:
                         bin = get_pT_bin_num(jet[0])
                         if bin != -1:
                             kappa = 1   # just use this for now
-                            l = calcLambda_single_jet(jet, beta, kappa, jetR)
-                            lambda_per_bin[bin].at[beta, jetR].append(l)
+                            l = self.calcLambda_single_jet(jet, beta, kappa, jetR)
+                            lambdas_per_bin[bin].at[beta, jetR].append(l)
 
         # Return list of dataframes per pT bin
         return lambdas_per_bin

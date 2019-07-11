@@ -33,9 +33,10 @@ Jet:
       #mc: [is_ev_rej, run_number, ev_id, centrality, z_vtx_reco, z_vtx_gen]
     var_gen: [run_number, ev_id, ParticlePt, ParticleEta, ParticlePhi]
     var_evt_match: [run_number, ev_id]
-    jetRadii = [0.1, 0.2, 0.3, 0.4]
-    pTbins = [20, 40, 60, 80, 100, 120]
-    betas = [1, 1.5, 2]
+    jetRadii: [0.1, 0.2, 0.3, 0.4]
+    pTbins: [20, 40, 60, 80, 100, 120]
+    betas: [1, 1.5, 2]
+    etaMax: 0.9
 
   files_names:
     namefile_unmerged_tree: AnalysisResults.root

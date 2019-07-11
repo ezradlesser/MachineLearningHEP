@@ -22,7 +22,8 @@ import numpy as np
 import pandas as pd
 
 from machine_learning_hep.processer import Processer
-from machine_learning_hep.utilities import merge_method, concat_dir, get_pT_bin_list
+from machine_learning_hep.utilities import merge_method, concat_dir, \
+    create_folder_struc, get_pT_bin_list
 
 
 #---------------------------------------------------------------------------------------------------
@@ -215,15 +216,15 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
         l_dir = self.datap["multi"][self.mcordata]["lambda_plot_dir"]
         pTbins = self.datap["variables"]["pTbins"]
         pTbins_ranges = get_pT_bin_list(pTbins)
-        create_folder_struct(l_dir, pTbins_ranges)
+        create_folder_struc(l_dir, pTbins_ranges)
 
         # Get the list of dataframes containing lambdas info per pT bin, beta, & jet R
-        lambdas_per_bin = calc_jet_lambda()
+        lambdas_per_bin = self.calc_jet_lambda()
 
         # Make plots per jet pT bin
         for i, pTmin in list(enumerate(pTbins))[0:-1]:
             pTmax = pTbins[i + 1]
-            fig, a, fig2, a2 = initialize_lambda_plots(self.betas, self.jetRadii, pTmin, pTmax)
+            fig, a, fig2, a2 = self.initialize_lambda_plots(pTmin, pTmax)
 
             # TODO: modify fig2 / a2 to create a jet pT distribution
 
@@ -253,6 +254,6 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
 
 
     def multi_jet(self):
-        plot_jet_lambda()
+        self.plot_jet_lambda()
         # Do other stuff eventually
         return 0
