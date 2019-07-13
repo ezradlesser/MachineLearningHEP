@@ -20,6 +20,7 @@ from __future__ import division, print_function
 import os
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from machine_learning_hep.processer import Processer
 from machine_learning_hep.utilities import merge_method, concat_dir, \
@@ -166,22 +167,22 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
                 lambdas1.at[beta, jetR].extend(lambdas2.at[beta, jetR])
         return lambdas1
 
-    def merge_lambda_lists(lambda_list_1, lambda_list_2):
-        if lambda_list_1 == np.nan:
+    def merge_lambda_lists(self, lambda_list_1, lambda_list_2):
+        if lambda_list_1 == None:
             return lambda_list_2
         else:
             for i, lambdas in enumerate(lambda_list_2):
                 # Update lambda_list_1 with info from lambda_list_2
-                lambda_list_1[i] = merge_lambdas(lambda_list_1[i], lambdas)
+                lambda_list_1[i] = self.merge_lambdas(lambda_list_1[i], lambdas)
         return lambda_list_1
 
     def calc_jet_lambda(self):
-        lambdas_per_bin = np.nan
+        lambdas_per_bin = None
 
         for indexp in range(self.prodnumber):
             print("Calculating jet lambda substructure observable for %s" % self.dlper_root[indexp])
             lambdas_list = self.process_listsample[indexp].calc_lambda()
-            lambdas_per_bin = merge_lambda_lists(lambdas_per_bin, lambdas_list)
+            lambdas_per_bin = self.merge_lambda_lists(lambdas_per_bin, lambdas_list)
 
         return lambdas_per_bin
 
@@ -194,7 +195,7 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
 
         # Create figure for tau_alpha plot & arrange subplots
         fig, a = plt.subplots(len(self.betas), len(self.jetRadii))
-        fig.suptitle(r'Calculated $\tau_\alpha$ values for $p_{T\text{, jet}}=%s-%s$' % 
+        fig.suptitle(r'Calculated $\lambda_\beta$ values for $p_{T, jet}=%s-%s$' % 
                      (str(pTmin), str(pTmax)))
         fig.text(0.5, 0.04, 'Jet Radius', ha='center', va='center')   # Major x-axis label
         fig.text(0.06, 0.5, 'Beta', ha='center', va='center', 
@@ -203,7 +204,7 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
 
         # Create figure for jet pT distribution & arrange subplots
         fig2, a2 = plt.subplots(len(self.betas), len(self.jetRadii))
-        fig2.suptitle(r'Cut jet $p_T$ multiplicity for $p_{T\text{, jet}}=%s-%s$' % 
+        fig2.suptitle(r'Cut jet $p_T$ multiplicity for $p_{T, jet}=%s-%s$' % 
                       (str(pTmin), str(pTmax)))
         fig2.text(0.5, 0.04, 'Jet Radius', ha='center', va='center')  # Major x-axis label
         fig2.text(0.06, 0.5, 'Beta', ha='center', va='center', 
@@ -233,23 +234,23 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
             for j, jetR in enumerate(self.jetRadii):
                 for k, beta in enumerate(self.betas):
                     lambda_list = lambdas_per_bin[i].at[beta, jetR]
-                    ax = a[j, k]
+                    ax = a[k, j]
 
                     # Approx bin size for good statistics
-                    n_bins = len(lambda_list) // (5 * 10**4) + 1
+                    n_bins = 100 #len(lambda_list) // (5 * 10**4) + 1
                     # Make the subplot a histogram
                     n, bins, patches = ax.hist(lambda_list, range=(0, 0.6), bins=n_bins)
                     # Scientific notation on y-axis
                     ax.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
                     # Add labels to sub axes
-                    if i == 0:
-                        ax.set_ylabel(r"$\alpha = " + str(alpha) + '$')
-                    if alphaNum == (len(alphas) - 1):
+                    if j == 0:
+                        ax.set_ylabel(r"$\beta = " + str(beta) + '$')
+                    if k == (len(self.betas) - 1):
                         ax.set_xlabel(r"$R = " + str(jetR) + '$')
 
             # Save plot
             out_dir = concat_dir(l_dir, pTbins_ranges[i])
-            fig.savefig('%slambda.png' % out_dir)
+            fig.savefig('%s/lambda.png' % out_dir)
 
         return 0
 
