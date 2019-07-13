@@ -224,6 +224,7 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
         lambdas_per_bin = self.calc_jet_lambda()
 
         # Make plots per jet pT bin
+        print("Plotting jet lambda observable per pT bin")
         for i, pTmin in list(enumerate(pTbins))[0:-1]:
             pTmax = pTbins[i + 1]
             fig, a, fig2, a2 = self.initialize_lambda_plots(pTmin, pTmax)
@@ -239,7 +240,7 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
                     # Approx bin size for good statistics
                     n_bins = 100 #len(lambda_list) // (5 * 10**4) + 1
                     # Make the subplot a histogram
-                    n, bins, patches = ax.hist(lambda_list, range=(0, 0.6), bins=n_bins)
+                    n, bins, patches = ax.hist(lambda_list, range=(1e-10, 0.6), bins=n_bins)
                     # Scientific notation on y-axis
                     ax.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
                     # Add labels to sub axes
@@ -252,6 +253,7 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
             out_dir = concat_dir(l_dir, pTbins_ranges[i])
             fig.savefig('%s/lambda.png' % out_dir)
 
+        print("Plots successfully saved")
         return 0
 
 

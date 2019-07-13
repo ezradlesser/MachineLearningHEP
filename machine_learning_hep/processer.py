@@ -34,7 +34,8 @@ from ROOT import TFile, TH1F # pylint: disable=import-error, no-name-in-module
 from machine_learning_hep.selectionutils import selectfidacc
 from machine_learning_hep.bitwise import filter_bit_df, tag_bit_df
 from machine_learning_hep.utilities import selectdfquery, selectdfrunlist, merge_method, \
-    list_folders, createlist, appendmainfoldertolist, create_folder_struc, seldf_singlevar
+    list_folders, createlist, appendmainfoldertolist, create_folder_struc, seldf_singlevar, \
+    get_pT_bin_list
 from machine_learning_hep.models import apply # pylint: disable=import-error
 
 class Processer: # pylint: disable=too-many-instance-attributes
@@ -342,6 +343,9 @@ class Processer: # pylint: disable=too-many-instance-attributes
                     return_vals[i] = return_vals[i].get()
                 l = [jet_df] + return_vals
                 jet_df = pd.concat(l)
+                # For testing, just get some events quickly
+                #if len(jet_df) > 1:
+                #    return jet_df
 
         if function == self.findJets:
             print("Jet finding complete. Total number of jets: %i" % len(jet_df))
@@ -603,13 +607,13 @@ class Processer: # pylint: disable=too-many-instance-attributes
         # We want to create a different analysis for each pT bin
         lambdas_per_bin = self.gen_lambdas_per_pT_bin()
 
+        pT_bin_list = get_pT_bin_list(self.pTbins)
         for bin_num in np.arange(len(self.pTbins) - 1):
+            print("Calculating lambda observable for jet pT = %s GeV/c" % pT_bin_list[bin_num])
             lambdas = lambdas_per_bin[bin_num]        
             for jetR in self.jetRadii:
                 lambdas[jetR] = [list(chain(
                                  *[self.get_pT_jet_list(bin_num, beta, jetR, x) 
                                    for x in self.jets[jetR]])) for beta in self.betas]
-            print(lambdas)
-
         # Return list of dataframes per pT bin
         return lambdas_per_bin
