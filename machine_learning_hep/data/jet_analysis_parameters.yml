@@ -24,6 +24,9 @@ Jet:
   sel_skim_binmin: [4]
   sel_skim_binmax: [6]
 
+  # Ignore previous jet calculation, recalculate & overwrite
+  ignore_prev_jet_calc: False
+
   variables:
     var_all: [run_number, ev_id, ParticlePt, ParticleEta, ParticlePhi]
     var_evt:
@@ -48,15 +51,16 @@ Jet:
     treeorigingen: 'PWGHF_TreeCreator/tree_Particle'
     treeoriginevt: 'PWGHF_TreeCreator/tree_event_char'
     namefile_reco_ml_applied: AnalysisResultsRecoML.pkl
+    namefile_jets: AnalysisResultsJet.pkl
 
   multi:
     data:
       nperiods: 1
-      nprocessesparallel: 16
+      nprocessesparallel: 8
       maxfiles : [-1, -1]
       chunksizeunp : [500]
       chunksizeskim: [500]
-      chunksizejet: [100]
+      chunksizejet: [50]
       fracmerge : [0.05]
       #fracmerge : [1.0]
       seedmerge: [12]
@@ -65,7 +69,7 @@ Jet:
       pkl: [/project/projectdirs/alice/shared_data/487/12-06-2019/487_20190612-0216/pkl]
       pkl_skimmed: [datapklskLHC17q]
       pkl_evtcounter_all: datapklevtcounter_all
-      lambda_plot_dir: /project/projectdirs/alice/elesser/MachineLearningHEP/machine_learning_hep/lambda_plots
+      jet_plot_dir: /project/projectdirs/alice/elesser/MachineLearningHEP/machine_learning_hep/jet_plots
       
     mc:
       nperiods: 1

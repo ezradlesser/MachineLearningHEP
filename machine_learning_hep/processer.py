@@ -83,6 +83,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
         self.n_evt = datap["files_names"]["namefile_evt"]
         self.n_evtorig = datap["files_names"]["namefile_evtorig"]
         self.n_gen = datap["files_names"]["namefile_gen"]
+        self.n_jet = datap["files_names"]["namefile_jets"]
         self.n_filemass = self.n_fileeff = None
         if 'Jet' not in case:
             self.n_filemass = datap["files_names"]["histofilename"]
@@ -124,18 +125,18 @@ class Processer: # pylint: disable=too-many-instance-attributes
             self.v_ismcbkg = datap["bitmap_sel"]["var_ismcbkg"]
             self.v_var_binning = datap["variables"]["var_binning"]
 
-
         #list of files names
-
         self.l_path = None
         if os.path.isdir(self.d_root):
             self.l_path = list_folders(self.d_root, self.n_root, self.p_maxfiles)
         else:
             self.l_path = list_folders(self.d_pkl, self.n_reco, self.p_maxfiles)
 
+        self.ignore_prev_jet_calc = datap["ignore_prev_jet_calc"] if ('Jet' in case) else None
         self.l_root = createlist(self.d_root, self.l_path, self.n_root)
         self.l_reco = createlist(self.d_pkl, self.l_path, self.n_reco)
         self.l_evt = createlist(self.d_pkl, self.l_path, self.n_evt)
+        self.l_jet = createlist(self.d_pkl, self.l_path, self.n_jet) if ('Jet' in case) else None
         self.l_evtorig = createlist(self.d_pkl, self.l_path, self.n_evtorig)
 
         if self.mcordata == "mc":
@@ -344,11 +345,11 @@ class Processer: # pylint: disable=too-many-instance-attributes
                 l = [jet_df] + return_vals
                 jet_df = pd.concat(l)
                 # For testing, just get some events quickly
-                #if len(jet_df) > 1:
-                #    return jet_df
+                if len(jet_df) > 1e6:
+                    break
 
         if function == self.findJets:
-            print("Jet finding complete. Total number of jets: %i" % len(jet_df))
+            print("Jet finding complete. Total number of events: %i" % len(jet_df))
             return jet_df
         return 0
             
@@ -482,6 +483,16 @@ class Processer: # pylint: disable=too-many-instance-attributes
         h_sel_fd.Write()
 
 
+    # Return True if jet to be cut; False otherwise
+    def cut_jet(self, jet, jetR):
+        etaMax = self.datap['variables']['etaMax'] - jetR
+        if abs(jet.eta) > etaMax:   # Entire jet must fit within desired region
+            return True
+        elif len(jet.constituents_array()) < 2:  # Jet must have more than one constituent
+            return True
+        return False
+
+
     # REQUIRES list of particles [(pT, eta, phi, m), (pT, eta, phi, m), ...]
     #          and the jet radius jetR desired for reconstruction
     # RETURNS list of clustered jets
@@ -491,8 +502,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
         jets = cluster(particles, R=float(jetR), p=-1).inclusive_jets()  # p=-1  -->  anti-kT
         jetList = []
         for jet in jets:
-            etaMax = self.datap['variables']['etaMax'] - jetR
-            if abs(jet.eta) < etaMax:
+            if not self.cut_jet(jet, jetR):
                 l = [jet.pt, jet.eta, jet.phi, jet.mass] + list(jet.constituents_array())
                 jetList.append(l)
         return jetList
@@ -502,6 +512,14 @@ class Processer: # pylint: disable=too-many-instance-attributes
     # ________|____________JetRadii______________|
     # ev_id   |  JetR  |  JetR  |  JetR  |  ...  |
     def findJets(self, file_index):
+        # Check if jet calculation already exists
+        if not self.ignore_prev_jet_calc and os.path.exists(self.l_jet[file_index]):
+            print("Loading previously calculated jets at %s" % self.l_jet[file_index])
+            try:
+                return pd.read_pickle(self.l_jet[file_index])
+            except:
+                print("Pickle file failed to load. Recalculating jets for this file.")
+
         # Open root file and save particle tree to dataframe
         treereco = uproot.open(self.l_root[file_index])[self.n_treereco]
         if not treereco:
@@ -515,9 +533,8 @@ class Processer: # pylint: disable=too-many-instance-attributes
         mass = 0.1396   # GeV/c^2
         particles = [np.array([(row[0], row[1], row[2], mass)], dtype=dt)[0] 
                      for row in dfreco[['ParticlePt', 'ParticleEta', 'ParticlePhi']].values]
-        dfreco = pd.DataFrame({'ev_id': dfreco['ev_id'], 'particles': particles})
-        dfreco = dfreco.groupby('ev_id', sort=False)['particles'].apply(
-            lambda x: np.array(x, dtype=dt))
+        dfreco = pd.DataFrame({'ev_id': dfreco['ev_id'], 'particles': particles}).groupby(
+            'ev_id', sort=False)['particles'].apply(lambda x: np.array(x, dtype=dt))
 
         # Find jets for each event
         jet_df = pd.DataFrame(columns=self.jetRadii, index=dfreco.index.tolist())
@@ -526,6 +543,11 @@ class Processer: # pylint: disable=too-many-instance-attributes
 
         print("Successfully found jets from %i events in %s" % 
               (len(jet_df), self.l_root[file_index]))
+
+        # Save jets to a pickle file so that they don't have to be calculated again
+        os.makedirs(os.path.dirname(self.l_jet[file_index]), exist_ok=True)
+        jet_df.to_pickle(self.l_jet[file_index])
+
         return jet_df
 
 
@@ -534,26 +556,15 @@ class Processer: # pylint: disable=too-many-instance-attributes
         arguments = [(i,) for i in range(len(self.l_root))]
         return self.parallelizer(self.findJets, arguments, self.p_chunksizejet)
 
+
     # Calculate the jet substructure variable lambda for given jet, beta, kappa, and jet R)
     def calc_lambda_single_jet(self, jet, b, k, jet_R):
-
-        # Sanity check
-        if len(jet) < 5:
-            print("ERROR! Jet is nonsensical. Check jet-finding algorithm in processer.findJets")
-            exit(1)
-
-        # Read jet info for calculations
-        jet_pT = jet[0]
-        jet_eta = jet[1]
-        jet_phi = jet[2]
 
         # Calculate & sum lambda for all jet constituents
         lambda_bk = 0
         for constituent in jet[4:]:
-            eta = constituent[1]
-            phi = constituent[2]
-            deltaR = np.sqrt( (jet_eta - eta)**2 + (jet_phi - phi)**2 )
-            lambda_bk += (constituent[0] / jet_pT)**k * (deltaR / jet_R)**b
+            deltaR = np.sqrt( (jet[1] - constituent[1])**2 + (jet[2] - constituent[2])**2 )
+            lambda_bk += (constituent[0] / jet[0])**k * (deltaR / jet_R)**b
 
         return lambda_bk
 
@@ -596,6 +607,28 @@ class Processer: # pylint: disable=too-many-instance-attributes
         return li
 
 
+    def get_num_jet_constits(self, jet_list):
+        num_constits = []
+        for jet in jet_list:
+            num_constits.append( len(jet) - 4 )
+        return num_constits
+
+
+    def get_jet_pT_dist(self, jet_list):
+        jet_pT = []
+        for jet in jet_list:
+            jet_pT.append( jet[0] )
+        return jet_pT
+
+
+    def get_z_dist(self, jet_list):
+        z = []
+        for jet in jet_list:
+            for constit in jet[4:]:
+                z.append(constit[0] / jet[0])
+        return z
+
+
     # Calculate the jet substructure variable lambda_k for all values
     # of k indicated in the configuration file
     def calc_lambda(self):
@@ -617,3 +650,25 @@ class Processer: # pylint: disable=too-many-instance-attributes
                                    for x in self.jets[jetR]])) for beta in self.betas]
         # Return list of dataframes per pT bin
         return lambdas_per_bin
+
+
+    # Calculate general jet distributions: pT, z=pT,track/pT,jet, N constituents
+    def calc_gen_jet_plots(self):
+
+        # Get the events & their corresponding jets (if not already done)
+        if self.jets == None:
+            self.jets = self.find_jets_all()
+
+        print("Calculating general jet distributions: pT, z=pT,track/pT,jet, N constituents...")
+        pT_dist = pd.DataFrame(columns=self.jetRadii)
+        N_constit = pd.DataFrame(columns=self.jetRadii)
+        z_dist = pd.DataFrame(columns=self.jetRadii)
+        for jetR in self.jetRadii:
+            N_constit[jetR] = list(chain([self.get_num_jet_constits(jet_list) 
+                                          for jet_list in self.jets[jetR]]))
+            pT_dist[jetR] = list(chain([self.get_jet_pT_dist(jet_list) 
+                                        for jet_list in self.jets[jetR]]))
+            z_dist[jetR] = list(chain([self.get_z_dist(jet_list)
+                                       for jet_list in self.jets[jetR]]))
+            
+        return N_constit, pT_dist, z_dist
