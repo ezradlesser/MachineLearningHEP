@@ -102,6 +102,9 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
             self.pTbins = datap["variables"]["pTbins"]
             self.betas = datap["variables"]["betas"]
             self.j_dir = self.datap["multi"][self.mcordata]["jet_plot_dir"]
+            self.pTbins = self.datap["variables"]["pTbins"]
+            self.n_lambda_bins = datap['variables']['N_lambda_bins']
+            self.lambda_max = datap['variables']['lambda_max']
 
         self.process_listsample = []
         for indexp in range(self.prodnumber):
@@ -163,27 +166,17 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
             self.process_listsample[indexp].process_efficiency()
 
     def merge_lambdas(self, lambdas1, lambdas2):
-        for jetR in self.jetRadii:
-            for beta in self.betas:
-                lambdas1.at[beta, jetR].extend(lambdas2.at[beta, jetR])
-        return lambdas1
-
-    def merge_lambda_lists(self, lambda_list_1, lambda_list_2):
-        if lambda_list_1 == None:
-            return lambda_list_2
-        else:
-            for i, lambdas in enumerate(lambda_list_2):
-                # Update lambda_list_1 with info from lambda_list_2
-                lambda_list_1[i] = self.merge_lambdas(lambda_list_1[i], lambdas)
-        return lambda_list_1
+        if lambdas1 == None:
+            return lambdas2
+        return np.add(lambdas1, lambdas2)
 
     def calc_jet_lambda(self):
         lambdas_per_bin = None
 
         for indexp in range(self.prodnumber):
             print("Calculating jet lambda substructure observable for %s" % self.dlper_root[indexp])
-            lambdas_list = self.process_listsample[indexp].calc_lambda()
-            lambdas_per_bin = self.merge_lambda_lists(lambdas_per_bin, lambdas_list)
+            lambdas_list = self.process_listsample[indexp].calc_lambda_dist()
+            lambdas_per_bin = self.merge_lambdas(lambdas_per_bin, lambdas_list)
 
         return lambdas_per_bin
 
@@ -201,7 +194,7 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
     def initialize_lambda_plots(self, pTmin, pTmax):
 
         plt.subplots_adjust(wspace=3, hspace=3)
-        plt.rc('font', size=20)          # controls default text sizes
+        plt.rc('font', size=20)          # controls main title size (defalut text size below)
         plt.rc('axes', labelsize=18)     # fontsize of the x and y labels
         plt.rc('xtick', labelsize=14)    # fontsize of the tick labels
         plt.rc('ytick', labelsize=14)    # fontsize of the tick labels
@@ -210,8 +203,9 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
         fig, a = plt.subplots(len(self.betas), len(self.jetRadii))
         fig.suptitle(r'Calculated $\lambda_\beta$ values for $p_{T, jet}=%s-%s$' % 
                      (str(pTmin), str(pTmax)))
-        fig.text(0.5, 0.04, 'Jet Radius', ha='center', va='center')   # Major x-axis label
-        fig.text(0.06, 0.5, 'Beta', ha='center', va='center', 
+        plt.rc('font', size=14)          # controls default text sizes        
+        fig.text(0.5, 0.02, 'Jet Radius', ha='center', va='center')   # Major x-axis label
+        fig.text(0.02, 0.5, 'Beta', ha='center', va='center', 
                  rotation='vertical')                                 # Major y-axis label
         fig.set_size_inches(27, 15)
 
@@ -219,8 +213,7 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
 
     def plot_jet_lambda(self):
         # Create directroy to save files
-        pTbins = self.datap["variables"]["pTbins"]
-        pTbins_ranges = get_pT_bin_list(pTbins)
+        pTbins_ranges = get_pT_bin_list(self.pTbins)
         create_folder_struc(self.j_dir, pTbins_ranges)
 
         # Get the list of dataframes containing lambdas info per pT bin, beta, & jet R
@@ -228,26 +221,35 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
 
         # Make plots per jet pT bin
         print("Plotting jet lambda observable per pT bin")
-        for i, pTmin in list(enumerate(pTbins))[0:-1]:
-            pTmax = pTbins[i + 1]
+        for i, pTmin in list(enumerate(self.pTbins))[0:-1]:
+            pTmax = self.pTbins[i + 1]
             fig, a = self.initialize_lambda_plots(pTmin, pTmax)
 
             # Create subplot per jet R and beta (for each individual pT bin)
             for j, jetR in enumerate(self.jetRadii):
                 for k, beta in enumerate(self.betas):
-                    lambda_list = lambdas_per_bin[i].at[beta, jetR]
+                    #lambda_list = lambdas_per_bin[i].at[beta, jetR]
+                    binned_lambdas = lambdas_per_bin[i][j][k]
                     ax = a[k, j]
 
+                    ''' old df sln
                     # Normalize histogram by 1/N
                     wg = np.ones(len(lambda_list)) / len(lambda_list)
                     # Approx bin size for good statistics
                     n_bins = 100 #len(lambda_list) // (5 * 10**4) + 1
                     # Make the subplot a histogram
                     n, bins, patches = ax.hist(lambda_list, range=(0, 0.6), bins=n_bins, weights=wg)
+                    '''
+                    wg = sum(binned_lambdas)
+                    x = [ (i + 0.5) * self.lambda_max / self.n_lambda_bins 
+                          for i in range(self.n_lambda_bins) ]
+                    ax.bar(x, binned_lambdas/wg, width=(self.lambda_max / self.n_lambda_bins), align='center')
+                    #ax.set_ylim(top=max(binned_lambdas/wg))
                     # Scientific notation on y-axis
                     #ax.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
                     # Add labels to sub axes
-                    ax.set_title(r"$\beta = " + str(beta) + '$, ' + "$R = " + str(jetR) + '$')
+                    ax.set_title(r"$\beta = " + str(beta) + "$, $R = " + 
+                                 str(jetR) + "$, $N = " + str(wg) + '$')
                     ax.set_ylabel(r"$\frac{1}{N}\frac{dN}{d\lambda_\beta}$")
                     ax.set_xlabel(r"$\lambda_\beta$")
                     #if j == 0:
@@ -256,6 +258,7 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
                     #    ax.set_xlabel(r"$R = " + str(jetR) + '$')
 
             # Save plot
+            plt.subplots_adjust(left = 0.08, right = .97, top = 0.92, bottom = 0.08, wspace = 0.3, hspace = 0.3)
             out_dir = concat_dir(self.j_dir, pTbins_ranges[i])
             fig.savefig('%s/lambda.png' % out_dir)
 
@@ -281,8 +284,7 @@ class MultiProcesser: # pylint: disable=too-many-instance-attributes, too-many-s
 
     def plot_gen_jet(self):
         # Create directroy to save files
-        pTbins = self.datap["variables"]["pTbins"]
-        pTbins_ranges = get_pT_bin_list(pTbins)
+        pTbins_ranges = get_pT_bin_list(self.pTbins)
         create_folder_struc(self.j_dir, pTbins_ranges)
 
         # Get the dataframes containing relevant general info

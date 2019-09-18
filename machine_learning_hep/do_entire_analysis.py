@@ -33,20 +33,20 @@ def do_entire_analysis(analysis_config_file): # pylint: disable=too-many-locals,
 
     # Load configuration file specifying main options to execute: conversion, skimming, analysis, etc.
     with open("default_complete.yaml", 'r') as run_config:
-        data_config = yaml.load(run_config)
+        data_config = yaml.load(run_config, Loader=yaml.FullLoader)
 
     # Load configuration file containing all relevant analysis parameters
     with open(analysis_config_file, 'r', encoding='utf-8') as param_config:
-        data_param = yaml.load(param_config)
+        data_param = yaml.load(param_config, Loader=yaml.FullLoader)
 
     with open("data/config_model_parameters.yml", 'r') as mod_config:
-        data_model = yaml.load(mod_config)
+        data_model = yaml.load(mod_config, Loader=yaml.FullLoader)
 
     with open("data/database_run_list.yml", 'r') as runlist_config:
-        run_param = yaml.load(runlist_config)
+        run_param = yaml.load(runlist_config, Loader=yaml.FullLoader)
 
     with open("data/database_ml_gridsearch.yml", 'r') as grid_config:
-        grid_param = yaml.load(grid_config)
+        grid_param = yaml.load(grid_config, Loader=yaml.FullLoader)
 
     # Load parameters from data_config -- Required parameters
     usemc = data_config["use_mc"]

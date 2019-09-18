@@ -38,6 +38,8 @@ Jet:
     var_evt_match: [run_number, ev_id]
     jetRadii: [0.1, 0.2, 0.3, 0.4]
     pTbins: [5, 12, 28, 57, 99]
+    N_lambda_bins: 100
+    lambda_max: 0.6
     betas: [1.0, 1.5, 2.0]
     etaMax: 0.9
 
@@ -65,11 +67,11 @@ Jet:
       #fracmerge : [1.0]
       seedmerge: [12]
       period: [LHC17pq]
-      unmerged_tree_dir: [/project/projectdirs/alice/shared_data/487/12-06-2019/487_20190612-0216/unmerged]
-      pkl: [/project/projectdirs/alice/shared_data/487/12-06-2019/487_20190612-0216/pkl]
+      unmerged_tree_dir: [/remote_storage/hiccup6/u/alice/LHC17pq/145/]
+      pkl: [/home/ezra/MachineLearningHEP/machine_learning_hep/pkl/LHC17pq/145]
       pkl_skimmed: [datapklskLHC17q]
       pkl_evtcounter_all: datapklevtcounter_all
-      jet_plot_dir: /project/projectdirs/alice/elesser/MachineLearningHEP/machine_learning_hep/jet_plots
+      jet_plot_dir: /home/ezra/MachineLearningHEP/machine_learning_hep/jet_plots
       
     mc:
       nperiods: 1

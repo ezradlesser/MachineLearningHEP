@@ -157,9 +157,29 @@ class Processer: # pylint: disable=too-many-instance-attributes
             self.jetRadii = datap['variables']['jetRadii']
             self.pTbins = datap['variables']['pTbins']
             self.betas = datap['variables']['betas']
-            self.jets = None   # Will fill this in if needed using findJets()
+            #self.jets = None   # Will fill this in if needed using findJets()
 
-        if 'Jet' not in case:
+            # 4D list of binned lambda values. Filled during jet-finding.
+            # [ (pTbin1:) [ (jetR1:) [ (beta1:) [lambdabin1, lambdabin2, ... ],
+            #                          (beta2:) [ ... ], 
+            #                          ... ],
+            #               (jetR2:) [ ... ],
+            #               ... ],
+            #   (pTbin2:) [ ... ],
+            #   ... ]
+            self.jet_lambda = None
+            self.n_lambda_bins = datap['variables']['N_lambda_bins']
+            self.lambda_max = datap['variables']['lambda_max']
+
+            # 2D list of dictionaries of N_jet_constits. Filled during jet-finding.
+            # [ (pTbin1:) [ (jetR1:) { "2": N_2, "3": N_3, ... },
+            #               (jetR2:) [ ... ],
+            #               ... ],
+            #   (pTbin2:) [ ... ],
+            #   ... ]
+            self.N_constits = None
+
+        else: #if 'Jet' not in case:
             self.p_modelname = datap["analysis"]["modelname"]
             self.lpt_model = datap["analysis"]["modelsperptbin"]
             self.dirmodel = datap["ml"]["mlout"]
@@ -226,6 +246,12 @@ class Processer: # pylint: disable=too-many-instance-attributes
             self.l_selml = ["y_test_prob%s>%s" % (self.p_modelname, self.lpt_probcutfin[ipt]) \
                             for ipt in range(self.p_nptbins)]
             self.s_presel_gen_eff = datap["analysis"]['presel_gen_eff']
+
+
+    def init_jet_lambda(self):
+        return np.array([ [ [ [0] * self.n_lambda_bins for k in self.betas] 
+                            for j in range(self.n_lambda_bins) ] 
+                          for i in list(self.pTbins)[0:-1] ])
 
     def unpack(self, file_index):
         # Open root file and save event tree to dataframe
@@ -327,9 +353,10 @@ class Processer: # pylint: disable=too-many-instance-attributes
     def parallelizer(self, function, argument_list, maxperchunk):
         chunks = [argument_list[x:x+maxperchunk] \
                   for x in range(0, len(argument_list), maxperchunk)]
-
+        '''
         # If finding jets, we want to save a dataframe of jet info
         jet_df = pd.DataFrame(columns=self.jetRadii)
+        '''
 
         for chunk in chunks:
             print("Processing new chunk size =", maxperchunk)
@@ -339,6 +366,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
             pool.close()
             pool.join()
 
+            '''
             if function == self.findJets:
                 for i in np.arange(len(return_vals)):
                     return_vals[i] = return_vals[i].get()
@@ -347,10 +375,22 @@ class Processer: # pylint: disable=too-many-instance-attributes
                 # For testing, just get some events quickly
                 if len(jet_df) > 1e6:
                     break
+            '''
 
+            if function == self.calc_lambda:
+                for i in np.arange(len(return_vals)):
+                    return_vals[i] = return_vals[i].get()
+                for li in return_vals:
+                    self.jet_lambda = np.add(self.jet_lambda, li)
+                # For now don't have to run over the whole data set
+                #if sum(self.jet_lambda[0][0][0]) > 1:
+                #    return 0
+
+        '''
         if function == self.findJets:
             print("Jet finding complete. Total number of events: %i" % len(jet_df))
             return jet_df
+        '''
         return 0
             
 
@@ -512,6 +552,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
     # ________|____________JetRadii______________|
     # ev_id   |  JetR  |  JetR  |  JetR  |  ...  |
     def findJets(self, file_index):
+
         # Check if jet calculation already exists
         if not self.ignore_prev_jet_calc and os.path.exists(self.l_jet[file_index]):
             print("Loading previously calculated jets at %s" % self.l_jet[file_index])
@@ -521,7 +562,13 @@ class Processer: # pylint: disable=too-many-instance-attributes
                 print("Pickle file failed to load. Recalculating jets for this file.")
 
         # Open root file and save particle tree to dataframe
-        treereco = uproot.open(self.l_root[file_index])[self.n_treereco]
+        print(self.l_root[file_index], self.n_treereco)
+        treereco = None
+        try:
+            treereco = uproot.open(self.l_root[file_index])[self.n_treereco]
+        except:
+            print("Unable to open ROOT TTree for particle data. Please check directory and filepath.")
+            return pd.DataFrame(columns=self.jetRadii)
         if not treereco:
             print('Couldn\'t find tree %s in file %s' % \
                   (self.n_treereco, self.l_root[file_index]))
@@ -529,7 +576,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
 
         dfreco = treereco.pandas.df(branches=self.v_all)
         dt = np.dtype([('pT', 'f8'), ('eta', 'f8'), ('phi', 'f8'), ('mass', 'f8')])
-        # For now just estimate everything as having pion mass
+        # For now just estimate everything as having pi meson mass
         mass = 0.1396   # GeV/c^2
         particles = [np.array([(row[0], row[1], row[2], mass)], dtype=dt)[0] 
                      for row in dfreco[['ParticlePt', 'ParticleEta', 'ParticlePhi']].values]
@@ -570,7 +617,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
 
 
     # Returns the expected pT bin index if given pT within bins, else returns -1
-    def get_pT_bin_num(self, pT):
+    def get_pTbin_num(self, pT):
 
         for bin, pTmin in list(enumerate(self.pTbins))[0:-1]:
             pTmax = self.pTbins[bin+1]
@@ -595,16 +642,25 @@ class Processer: # pylint: disable=too-many-instance-attributes
                 lambdas_per_bin[i][jetR] = np.empty((len(lambdas_per_bin[i]), 0)).tolist()
         return lambdas_per_bin
 
-
+    '''
     def get_pT_jet_list(self, bin_num, beta, jetR, jet_list):
         li = []
         kappa = 1   # just use this for now
         for jet in jet_list:
-            jet_bin_num = self.get_pT_bin_num(jet[0])
+            jet_bin_num = self.get_pTbin_num(jet[0])
             if bin_num != jet_bin_num:
                 continue
             li.append(self.calc_lambda_single_jet(jet, beta, kappa, jetR))
         return li
+    '''
+
+    # Returns list of tuples [ (pTbin_num, lambda), ...] 
+    def pTbin_lambdas_list(self, beta, jetR, jet_list):
+        kappa = 1  # just use this for now
+        li = [ ( self.get_pTbin_num(jet[0]), 
+                 self.calc_lambda_single_jet(jet, beta, kappa, jetR) )
+               for jet in jet_list ]
+        return [ tupl for tupl in li if tupl[0] >= 0 ]
 
 
     def get_num_jet_constits(self, jet_list):
@@ -628,7 +684,7 @@ class Processer: # pylint: disable=too-many-instance-attributes
                 z.append(constit[0] / jet[0])
         return z
 
-
+    '''
     # Calculate the jet substructure variable lambda_k for all values
     # of k indicated in the configuration file
     def calc_lambda(self):
@@ -650,8 +706,48 @@ class Processer: # pylint: disable=too-many-instance-attributes
                                    for x in self.jets[jetR]])) for beta in self.betas]
         # Return list of dataframes per pT bin
         return lambdas_per_bin
+    '''
 
+    def calc_lambda(self, file_index):
+        jet_df = self.findJets(file_index)
 
+        jet_lambda = self.init_jet_lambda()
+        norm = self.lambda_max / self.n_lambda_bins
+        for k, beta in enumerate(self.betas):
+            for j, jetR in enumerate(self.jetRadii):
+                lambdas = list(chain(*[self.pTbin_lambdas_list(beta, jetR, jet_list)
+                                       for jet_list in jet_df[jetR]]))
+                for pTbin_num, l in lambdas:
+                    lambda_bin = math.floor(l / norm)
+                    if lambda_bin < self.n_lambda_bins:
+                        jet_lambda[pTbin_num][j][k][lambda_bin] += 1
+                        #print("[%i][%i][%i][%i]: %i" % (pTbin_num, j, k, lambda_bin, 
+                        #                                jet_lambda[pTbin_num][j][k][lambda_bin]))
+                
+                # TODO: Implement saving this somehow
+                '''
+                N_constit = list(chain([self.get_num_jet_constits(jet_list) 
+                                        for jet_list in jet_df[jetR]]))
+                pT_dist = list(chain([self.get_jet_pT_dist(jet_list) 
+                                      for jet_list in jet_df[jetR]]))
+                z_dist = list(chain([self.get_z_dist(jet_list)
+                                     for jet_list in jet_df[jetR]]))
+                '''
+        return jet_lambda
+
+    def calc_lambda_dist(self):
+
+        # Make sure jet lambda histograms have been initialized
+        if self.jet_lambda == None:
+            print("Initializing jet lambda histograms...")
+            self.jet_lambda = self.init_jet_lambda()
+
+        print("Starting calculation of lambda observable", self.mcordata, self.period)
+        arguments = [(i,) for i in range(len(self.l_root))]
+        self.parallelizer(self.calc_lambda, arguments, self.p_chunksizejet)
+        return self.jet_lambda
+
+    '''
     # Calculate general jet distributions: pT, z=pT,track/pT,jet, N constituents
     def calc_gen_jet_plots(self):
 
@@ -672,3 +768,4 @@ class Processer: # pylint: disable=too-many-instance-attributes
                                        for jet_list in self.jets[jetR]]))
             
         return N_constit, pT_dist, z_dist
+    '''
